@@ -12,8 +12,8 @@ This repository contains both a polished browser demo and a production-shaped AP
 These screenshots come from the live demo. They show the public homepage and the buyer workspace. All names, prices, stock counts, and orders are fictional.
 
 <p align="center">
-  <img src="docs/screenshots/neev-homepage.png" alt="Neev public homepage" width="49%" />
-  <img src="docs/screenshots/neev-workspace.png" alt="Neev buyer workspace" width="49%" />
+  <img src="docs/screenshots/neev-homepage.jpg" alt="Neev public homepage" width="49%" />
+  <img src="docs/screenshots/neev-workspace.jpg" alt="Neev buyer workspace" width="49%" />
 </p>
 
 ## Why Neev Exists
