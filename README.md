@@ -1,94 +1,95 @@
 # Neev
 
-Neev is a hyper-local B2C/B2B red-brick marketplace prototype for the NCR East launch zone. The product is designed around one calm principle: show the real cost, the next safe action, and who is allowed to take it.
+Neev is a prototype marketplace for buying red bricks from local kilns in the NCR East launch area. It is meant to make a common building purchase easier: describe the need, compare real delivered cost, choose a supplier, and track what happens next.
 
-## What Is In This Repository
+This repository contains both a polished browser demo and a production-shaped API. The demo is safe to explore, but it uses fictional records and local browser state. It does not take real payments, reserve real stock, or send a truck.
 
-| File | Purpose |
-| --- | --- |
-| `index.html` | Public responsive homepage with the Core Journeys section. |
-| `workspace.html` | Non-HR operations workspace proof from the original PRD. |
-| `apps/web/` | Next.js 15 frontend scaffold for the Executive Summary and accessible UI primitives. |
-| `apps/api/` | Express 5 + Prisma API scaffold with PostgreSQL, Redis, JWT/RBAC, WebSockets, and tests. |
-| `scripts/verify-demo.mjs` | Static checks for both pages, required markers, JavaScript syntax, and obvious secrets. |
-| `.github/workflows/ci.yml` | Pull-request checks, preview artifact creation, and GitHub Pages deployment. |
+**Live demo:** [neev-web.onrender.com](https://neev-web.onrender.com)  
+**API readiness:** [neev-api-adnc.onrender.com/api/v1/health/ready](https://neev-api-adnc.onrender.com/api/v1/health/ready)
 
-The UI uses Helvetica Neue first, with system sans-serif fallbacks. It uses dark surfaces, thin borders, generous spacing, restrained motion, and direct actions rather than a dense dashboard aesthetic.
+## Screenshots
 
-## System Workflow Diagrams
+These screenshots come from the live demo. They show the public homepage and the buyer workspace. All names, prices, stock counts, and orders are fictional.
 
-The repository has two frontend layers: the no-build demo (`index.html` and `workspace.html`) and the production-shaped Next.js scaffold in `apps/web`. The demo and current Next.js summary use local state, browser persistence, and simulated latency. The API contract and data services are implemented separately so the UI can be connected without changing the product workflow.
+<p align="center">
+  <img src="docs/screenshots/neev-homepage.png" alt="Neev public homepage" width="49%" />
+  <img src="docs/screenshots/neev-workspace.png" alt="Neev buyer workspace" width="49%" />
+</p>
 
-### Visual Overview
+## Why Neev Exists
 
-![Neev system architecture: browser UI, Express API, PostgreSQL, Redis, and MongoDB Atlas](docs/diagrams/neev-architecture.svg)
+Small builders often find material through calls, messages, and incomplete price quotes. That makes it hard to answer simple questions: Is the stock fresh? What is the delivered price? Can the supplier deliver on the needed date? What happens if the quantity is wrong?
 
-![Neev marketplace order flow from material need to reconciliation](docs/diagrams/neev-order-flow.svg)
+Neev is designed around clear answers. A buyer can search by brick grade, quantity, location, freshness, and delivery date. A supplier can share stock, prices, and lead times. Operations users can review quotes, dispatch events, delivery proof, and exceptions in one place.
 
-![Neev Render production release and readiness flow](docs/diagrams/neev-release-flow.svg)
+The first version focuses on red bricks because the workflow is easy to understand. The same pattern can later support other building materials.
 
-### 1. Frontend UI/UX Flow
+## How The Pieces Fit
 
-This is how a user moves through the interface before any server command is sent:
-See the **Neev marketplace order flow** diagram above. It shows the role selection, client validation, local draft behavior, and the production API handoff.
+The simple view is:
 
-Frontend responsibilities:
+```mermaid
+flowchart LR
+  User[Buyer or supplier] --> Demo[Demo pages]
+  Demo --> Browser[Browser state and local drafts]
+  Browser --> API[Express API]
+  API --> Postgres[PostgreSQL]
+  API --> Redis[Redis]
+  API --> Mongo[Optional MongoDB]
+```
 
-- `apps/web/components/executive-summary.tsx` owns the role switch, form validation, loading state, toast feedback, and local draft persistence.
-- `index.html` and `workspace.html` are deterministic demo artifacts; they do not claim that a payment, dispatch, or remote write succeeded.
-- `apps/web` provides the production-shaped component and UI primitives. Its `/workspace` route is the handoff point for the full operations workspace.
-- Sensitive payment data is never stored in localStorage. Local storage contains only role, draft, and demo interaction state.
+The main order path is:
 
-### 2. Frontend-to-Backend Request Flow
+```mermaid
+flowchart TD
+  Need[Material need] --> Quote[Quote request]
+  Quote --> Accept[Quote accepted]
+  Accept --> Pay[Payment intent]
+  Pay --> Dispatch[Dispatch]
+  Dispatch --> Delivery[Delivery proof]
+  Delivery --> Reconcile[Reconciliation]
+```
 
-When the production UI is connected to the API, every state-changing action follows this boundary:
-See the **Neev system architecture** diagram above for the browser-to-API boundary and the internal API stages.
+The diagrams are deliberately small. Detailed versions are in [`docs/diagrams/`](docs/diagrams/), including the API boundary, order flow, and Render release flow.
 
-The API applies validation again even when the browser already validated the form. A timeout is treated as `pending`; the client should query by `requestId` before retrying. Quote versions, idempotency keys, role permissions, and organization ownership prevent duplicate or unauthorized writes.
+## Tech Stack
 
-### 3. Backend-to-Database Communication
-
-Neev uses PostgreSQL for transactional marketplace records and MongoDB as an optional document/demo store. These are separate responsibilities, not interchangeable databases:
-See the **Neev system architecture** diagram above for PostgreSQL, Redis, MongoDB Atlas, Prisma, and the Mongoose seed boundary.
-
-Database responsibilities:
-
-- **PostgreSQL + Prisma** is the source of truth for business transactions. Prisma migrations create and evolve the relational schema, and route handlers use parameterized queries.
-- **Redis** is used for pricing-rule caching and dependency readiness. Cache misses fall back to versioned defaults.
-- **MongoDB Atlas** is optional in the API runtime. `connectMongo()` validates the encryption key, uses TLS and bounded timeouts, and powers readiness checks. The encrypted document helpers use AES-256-GCM.
-- **Mongoose seed data** is written by `apps/api/scripts/seed-mongoose.ts` into tagged demo collections. The seed is idempotent and does not delete unrelated MongoDB data.
-- The current domain routes primarily read and write PostgreSQL. MongoDB seed/readiness/encrypted-store support is available as a separate boundary for document-shaped data.
-
-### 4. Marketplace State Flow
-
-The user-visible journey and the backend order ledger follow the same sequence:
-See the **Neev marketplace order flow** diagram above for the need, quote, payment, dispatch, reconciliation, and dispute states.
-
-Each transition writes the new state and its audit event in one transaction where applicable. Repeated payment webhooks and commands with the same idempotency key return the known outcome instead of creating duplicate orders or payments.
-
-### 5. Production Release and Readiness Flow
-
-Render uses the same startup path for a safe deploy and for a restart:
-See the **Neev Render production release and readiness flow** diagram above for validation, migration, seeding, startup, health checks, and rollback behavior.
-
-The liveness endpoint only proves that the process is running. The readiness endpoint verifies each configured dependency and returns `503` when the API cannot safely serve requests.
-
-### Implementation Status
-
-| Boundary | Current state | Main code path |
+| Area | Tools | Purpose |
 | --- | --- | --- |
-| UI/UX demo | Implemented with role views, validation, loading states, local drafts, recovery toasts, and responsive cards. | `index.html`, `workspace.html`, `apps/web/components/executive-summary.tsx` |
-| Frontend to API | API contract and route shapes are implemented; the demo UI still simulates commands locally. | `README.md` routes table, `apps/api/src/app.ts` |
-| Transactional database | Implemented through Prisma migrations and PostgreSQL. | `apps/api/prisma/schema.prisma`, `apps/api/src/lib/prisma.ts` |
-| Cache and readiness | Implemented through Redis/Valkey. | `apps/api/src/lib/redis.ts`, `apps/api/src/routes/health.ts` |
-| MongoDB | Startup connection, readiness ping, encrypted document helpers, and idempotent Mongoose seed are implemented. | `apps/api/src/lib/mongo.ts`, `apps/api/scripts/seed-mongoose.ts` |
-| Payments and dispatch providers | Contract and state boundaries exist; real external provider adapters remain a production integration task. | `apps/api/src/routes/payments.ts`, `apps/api/src/routes/dispatches.ts` |
+| Public demo | HTML, CSS, browser JavaScript | Fast pages with no build step |
+| Web app | Next.js 15, React 19, TypeScript, Tailwind CSS | Production-shaped workspace UI |
+| API | Express 5, TypeScript, Zod | Validated HTTP routes and business rules |
+| Access and events | JWT, role checks, WebSockets | Organization access and live updates |
+| Data | PostgreSQL, Prisma, Redis, optional MongoDB | Transactions, cache, readiness, and document data |
+| Quality | Vitest, TypeScript, GitHub Actions | Tests, builds, type checks, and deploy gates |
+| Hosting | Render and GitHub Pages | Public services and verified demo artifacts |
 
-## Run Locally
+## User Roles
 
-Open `index.html` in a browser for the public homepage. Open `workspace.html` for the operations view. No build step is required.
+- **Buyer:** searches inventory, compares delivered cost, requests quotes, and views its orders.
+- **Buyer finance:** creates or confirms payment intents for the buyer organization.
+- **Supplier:** edits its own inventory and responds to quote requests.
+- **Supplier operations:** schedules dispatch and adds vehicle or delivery proof.
+- **Operations admin:** verifies suppliers, reviews disputes, and checks audit history.
 
-The production-shaped apps are intentionally separate from the no-build demo:
+The browser shows these role boundaries for the demo. The API must enforce them again for every real request.
+
+## Project Map
+
+- `index.html`: public homepage and product journey demo.
+- `workspace.html`: buyer, supplier, and operations workspace demo.
+- `apps/web/`: Next.js application and reusable UI components.
+- `apps/api/`: Express service, Prisma schema, routes, health checks, and tests.
+- `scripts/verify-demo.mjs`: checks required page content, script syntax, and obvious secrets.
+- `docs/diagrams/`: detailed SVG architecture and workflow diagrams.
+- `docs/screenshots/`: screenshots used in this README.
+- `.github/workflows/ci.yml`: checks and GitHub Pages deployment.
+
+## Run It Locally
+
+You need Node.js 20 or newer. To view the demo, open `index.html` or `workspace.html` in a browser. No build step is needed.
+
+To run the web app:
 
 ```bash
 cd apps/web
@@ -97,7 +98,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-In a second terminal, start the API after PostgreSQL and Redis are available:
+To run the API, first make PostgreSQL and Redis available:
 
 ```bash
 cd apps/api
@@ -108,184 +109,76 @@ npx prisma migrate dev --name init
 npm run dev
 ```
 
-To seed a configured MongoDB Atlas database with the PRD fixtures, set `MONGODB_URI` (or `MONGODB_URL`) in `apps/api/.env` and run:
+MongoDB is optional. If `MONGODB_URI` or `MONGODB_URL` is configured, seed the fictional records with:
 
 ```bash
 cd apps/api
 npm run seed:mongoose
 ```
 
-The idempotent Mongoose seeder creates the PRD demo volumes of 12 users, 8 vendors, 24 products, 24 inventory snapshots, 18 orders, and 30 quotes, plus pricing tiers, volume discounts, logistics fees, tax rates, sustainability metrics, five explicit edge-case fixtures, and a seed-run record. It upserts only documents tagged with its seed version and never deletes unrelated data.
+Never put real passwords, API keys, payment secrets, or encryption keys in the repository.
 
-### Production Release Workflow
+## Deployment And CI/CD
 
-The API release is intentionally fail-closed. Render runs `npm run start:production` from `apps/api`; the release runner validates the environment through the compiled Zod schema, applies committed Prisma migrations with `prisma migrate deploy`, optionally runs the MongoDB seed when `SEED_ON_START=true`, starts the compiled server, and waits for `/api/v1/health/ready` before declaring the process ready.
+The API release command validates settings, applies committed Prisma migrations, optionally runs the safe MongoDB seed, starts the compiled server, and waits for the readiness check. A failed migration, seed, or dependency check stops the release instead of serving a partly ready API.
 
-- Set `DATABASE_SSL_MODE=require` in production. The Prisma client also appends bounded `connection_limit` and `pool_timeout` values from `DATABASE_POOL_SIZE` and `DATABASE_POOL_TIMEOUT_SECONDS`.
-- Set `MONGODB_URI` and `MONGODB_URL` to the same Atlas URL when both are present. `MONGODB_ENCRYPTION_KEY` must be base64 and decode to exactly 32 bytes; Atlas connections use TLS by default.
-- Keep `STARTUP_TIMEOUT_MS`, `SHUTDOWN_TIMEOUT_MS`, `HEALTH_CHECK_TIMEOUT_MS`, and `SEED_TIMEOUT_MS` bounded. A timeout exits the release instead of serving a partially initialized API.
-- `SEED_ON_START=false` is the safe default. Enable it for the demo environment only; the seed is idempotent, validates all Mongo settings, uses bounded connection/socket timeouts, and takes a lease-based Mongo lock so concurrent deploys cannot seed at the same time.
-- A failed migration, seed, or readiness check returns a non-zero exit code. Render keeps the last healthy revision available for rollback; database migrations are forward-only and are never destructively auto-reversed.
-- SIGTERM and SIGINT are forwarded through the release runner. The API closes its HTTP listener and disconnects PostgreSQL, Redis, and MongoDB within the shutdown timeout. Unexpected exceptions exit non-zero so Render's restart policy can recover the service.
-- Render's `/api/v1/health/live` endpoint is liveness-only. `/api/v1/health/ready` checks PostgreSQL, Redis, and configured MongoDB independently with per-check timeouts and returns `503` when any dependency is unavailable.
-- Run `npm run test:ci` for the Vitest contract suite, `npm run typecheck` and `npm run build` for compile checks, and `npm run audit:prod` for the production dependency audit. The repository uses Vitest; Jest is not required by this project.
-- Do not commit `.env` files, Atlas URLs, passwords, JWT secrets, webhook secrets, or encryption keys. Store them in Render environment variables and rotate them through Render when compromised.
+Every pull request and every push to `main` runs GitHub Actions. The workflow scans the demo pages for common secret patterns, runs the demo verifier, installs dependencies, type-checks and builds the web app, generates Prisma Client, tests and builds the API, and checks whitespace. A successful push to `main` creates and publishes the verified static demo artifact to GitHub Pages.
 
-The API exposes `GET /api/v1/health/live` without dependencies and `GET /api/v1/health/ready` when PostgreSQL and Redis are connected. JWTs are expected to carry `sub`, `organizationId`, and a non-empty `roles` array. Webhook requests must carry an HMAC-SHA256 signature. Never use the example JWT or webhook secrets in production.
+## Tests And Checks
 
-The demo stores non-sensitive state in the browser:
-
-- `neev-core-journey-v1` stores the selected buyer/supplier role, current stage, validated form drafts, and retry status.
-- `neev-home-analytics-v1` stores the last 100 anonymous interaction events.
-- No card number, CVV, payment token, password, or Gemini key is written to local storage.
-
-The page is deliberately usable offline after its HTML and image assets have been cached. Offline actions become local drafts and never claim that a payment or dispatch succeeded.
-
-## Core Journeys
-
-The homepage section at `#journeys` has one shared state model with two role-specific paths. A role switch, stage rail, handoff diagram, performance metrics, validation checkpoint, and recovery path are rendered from the same journey data.
-
-### Buyer: Search To Payment
-
-1. **Search**: capture the build need, filter by brick grade, freshness, location, and quantity, then return verified inventory.
-2. **Compare landed cost**: calculate material price plus freight, route confidence, and tax from a timestamped rate card.
-3. **Negotiate bulk terms**: send a structured quantity, delivery area, and target-date request with an idempotency key.
-4. **Pay through a gateway**: create a payment intent through the Razorpay or Stripe adapter. The marketplace trusts a signed webhook, not raw card data.
-
-Buyer validation in the demo rejects non-integer quantities, quantities below 1,000, quantities above 5,000,000, missing gateways, stale rate cards, and payment amounts that do not match the accepted quote version.
-
-### Supplier: Inventory To Reconciliation
-
-1. **Update inventory**: publish available pieces, price, grade, lead time, and batch evidence. Every edit increments a listing version.
-2. **Accept a quote**: review the current buyer request, expiry, route, and quantity. Accepting an old quote version is blocked.
-3. **Coordinate dispatch**: choose a slot, assign a vehicle, and attach proof of dispatch. Status changes are append-only events.
-4. **Reconcile delivery**: match proof, order, quantity, and payout state. A mismatch opens a dispute instead of releasing funds silently.
-
-Supplier validation in the demo rejects empty stock, invalid price, lead times outside 0-90 days, missing dispatch slots, and dispatches without an accepted quote.
-
-## Frontend Data Flow
-
-The static page models the same boundaries that a production client would use:
-
-```text
-user action
-  -> local validation
-  -> optimistic UI state
-  -> idempotent API command
-  -> server-side transaction
-  -> event / webhook
-  -> shared buyer, supplier, and operations timeline
-```
-
-The Core Journeys section shows this flow explicitly. Each stage lists the input checkpoint, the validated handoff, expected latency, role permission, and safe recovery behavior. The `Save & retry safely` action persists the current draft and records a retry event without pretending that a remote command succeeded.
-
-## Production Backend Contract
-
-The static pages remain deterministic demo artifacts. The `apps/api` scaffold now owns the first production boundary, but it still requires real provider adapters, migrations, credentials, and integration tests before launch. It does not yet call a real payment gateway, carrier, or dispatch service.
-
-| Route | Owner | Responsibility |
-| --- | --- | --- |
-| `GET /api/v1/search` | Buyer | Search verified inventory with location, grade, freshness, and quantity filters. |
-| `POST /api/v1/pricing/calculate` | Buyer or Supplier | Apply cached volume tiers and return material, freight, handling, platform, carbon, tax, and total line items. |
-| `POST /api/v1/quote-requests` | Buyer | Create an idempotent bulk request with quantity, site, target date, and expiry. |
-| `POST /api/v1/quotes/:quoteId/accept` | Buyer or Supplier | Accept the current quote version using optimistic concurrency. |
-| `POST /api/v1/payment-intents` | Buyer finance | Create an order-bound payment intent through the selected gateway adapter. |
-| `POST /api/v1/payments/:gateway/webhook` | Gateway | Verify signature, amount, currency, and quote version, then advance the order ledger. |
-| `PATCH /api/v1/inventory/:listingId` | Supplier | Validate and version stock, price, grade, batch, and lead time. |
-| `POST /api/v1/dispatches` | Supplier operations | Create a dispatch slot, vehicle reference, and proof-of-load event. |
-| `GET /api/v1/orders/:orderId/timeline` | All permitted roles | Return the append-only buyer, supplier, payment, and delivery timeline. |
-| `GET /api/v1/sustainability/metrics` | All permitted roles | Aggregate organization-scoped baseline, actual, reduced, and recycled-share metrics. |
-| `POST /api/v1/sustainability/metrics` | Supplier operations | Upsert a validated carbon measurement period with methodology and optional order link. |
-| `GET /api/v1/docs` | Developers | Interactive Swagger UI backed by the OpenAPI document. |
-
-### Implemented Scaffold Boundaries
-
-- **Web client**: `apps/web` renders the Executive Summary with custom Tailwind tokens, Shadcn-style primitives, React Hook Form/Zod validation, skeleton loading, toast recovery, and local draft persistence.
-- **API service**: `apps/api` validates request schemas, applies JWT/RBAC, attaches request IDs, emits structured logs, and owns transaction boundaries.
-- **PostgreSQL + Prisma**: `apps/api/prisma/schema.prisma` models organizations, users, inventory snapshots, quote requests, quotes, orders, payment intents, dispatch events, audit events, and indexed sustainability periods. Prisma appends pool settings from `DATABASE_POOL_SIZE` and `DATABASE_POOL_TIMEOUT_SECONDS`.
-- **Redis**: readiness checks and pricing-rule caching are implemented. The pricing rules cache has a five-minute TTL and safely falls back to versioned defaults if Redis is unavailable.
-- **MongoDB encrypted store**: optional MongoDB access uses a bounded client pool and application-level AES-256-GCM encryption for documents. Configure `MONGODB_URL` and a base64-encoded 32-byte `MONGODB_ENCRYPTION_KEY` together; the API refuses partial configuration.
-- **WebSocket updates**: authenticated organization-scoped `/ws` connections receive dispatch and quote events, enforce a message-size limit, and use heartbeat cleanup.
-- **Pricing module**: `POST /api/v1/pricing/calculate` uses Decimal arithmetic, volume discount basis points, distance freight, per-piece handling, platform fee, carbon contribution, and tax to return a traceable breakdown.
-- **Sustainability module**: metrics are stored as baseline/actual kilograms, derived reduction, recycled share, methodology, period, organization, and optional order evidence. Reads return totals plus a chronological trend.
-- **Security boundary**: strict JSON, URL-encoded, multipart, webhook, and WebSocket limits; CORS; Helmet; rate limiting; JWT/RBAC; request IDs; redacted Pino logs; security rejection events; and parameterized Prisma queries instead of interpolated SQL.
-- **API documentation**: `/api/v1/docs` serves Swagger UI and `/api/v1/docs/openapi.json` serves the machine-readable contract.
-- **Object storage**: batch certificates, vehicle documents, proof-of-load, and delivery evidence with signed URLs.
-- **Worker queue**: payment webhooks, carrier updates, notification retries, payout reconciliation, and stale-rate-card refreshes.
-- **Gateway adapters**: one interface for Razorpay and Stripe so the order service never depends on provider-specific payloads.
-
-### Order State Machine
-
-```text
-need.created
-  -> quote.requested
-  -> quote.accepted
-  -> payment.pending
-  -> payment.verified
-  -> dispatch.scheduled
-  -> dispatch.in_transit
-  -> delivery.proof_received
-  -> order.reconciled
-```
-
-Every transition should be an authenticated command that writes the new state and an audit event in one database transaction. Webhooks and carrier callbacks must be idempotent. A repeated webhook returns the already-known outcome instead of creating a second payment or payout.
-
-## Role-Based Access Control
-
-The UI exposes the intended permission boundary; the backend must enforce it again on every route.
-
-| Role | Can do | Cannot do |
-| --- | --- | --- |
-| `buyer` | Search, compare, request quotes, view own orders. | Change supplier inventory or release payment. |
-| `buyer_finance` | Create or confirm payment intents for the buyer organization. | Edit supplier terms or dispatch events. |
-| `supplier` | Edit owned inventory, view assigned requests, accept or counter quotes. | Read another supplier's inventory or alter payment ledger state. |
-| `supplier_ops` | Schedule dispatch, attach vehicle and proof events for owned orders. | Change accepted commercial terms. |
-| `ops_admin` | Verify vendors, resolve disputes, reconcile exceptions, inspect audit history. | Read raw payment credentials. |
-
-Use organization-scoped authorization, not only a role string. A supplier may edit only its own listing IDs, and a buyer may read only its organization orders.
-
-## Validation And Recovery Rules
-
-- Validate on the client for fast feedback and on the API for trust.
-- Carry `requestId`, `quoteVersion`, `idempotencyKey`, and `occurredAt` on every state-changing command.
-- Treat network timeout as `pending`, not `failed`, until the server is queried by request ID.
-- Treat a stale quote or rate card as a conflict that needs a fresh read, not as a silent overwrite.
-- Keep failed inventory and dispatch edits as local drafts with the last published version visible.
-- Retry webhook, carrier, and notification work with exponential backoff and a dead-letter queue.
-- Open a dispute when delivery proof and order quantity do not reconcile; never release a payout by guessing.
-- Keep user-facing errors short and actionable: what was blocked, why, and the safe next action.
-
-## Performance And Accessibility Targets
-
-The Core Journeys cards display the most important workflow SLOs. Production targets are:
-
-- Largest Contentful Paint below 2.5 seconds on a mid-tier mobile device.
-- Interaction to Next Paint below 200 milliseconds for role and stage changes.
-- Cumulative Layout Shift below 0.1 by reserving image and journey-panel space.
-- Search p95 below 400 milliseconds and landed-cost comparison p95 below 600 milliseconds.
-- Inventory save p95 below 800 milliseconds and buyer/supplier status sync below 2 seconds.
-- Payment webhook verification below 5 seconds after gateway delivery.
-- Keyboard focus rings, labelled controls, `aria-live` statuses, reduced-motion support, and touch targets of at least 44px.
-- Lazy-loaded product images, no blocking third-party scripts, and no horizontal overflow at 320px width.
-
-## CI/CD
-
-`.github/workflows/ci.yml` runs on pull requests and pushes to `main`:
-
-1. Checks `index.html` and `workspace.html` for obvious secrets.
-2. Runs `node scripts/verify-demo.mjs` for required markers and JavaScript syntax.
-3. Installs and type-checks/builds `apps/web`.
-4. Generates Prisma Client, type-checks `apps/api`, and runs its dependency-free HTTP contract tests.
-5. Runs `git diff --check`.
-6. Builds a Pages artifact containing both `index.html` and `workspace.html`.
-7. Deploys the verified artifact to GitHub Pages after a successful push to `main`.
-
-Run the local checks with:
+Run these commands from the named directory:
 
 ```bash
 node scripts/verify-demo.mjs
+
+cd apps/api
+npm run typecheck
+npm test -- --run
+npm run build
+npm run audit:prod
+
+cd ../web
+npm run typecheck
+npm run build
 ```
 
-## Prototype Boundary
+The API test suite currently has 10 passing tests. The public readiness endpoint checks PostgreSQL, Redis, and configured MongoDB separately and returns `503` when the API cannot safely serve requests.
 
-The fictional suppliers, prices, inventory, reviews, gateway labels, and delivery statuses are demo data. The page demonstrates the product behavior and the backend contract; it does not authorize real payments, reserve real stock, send SMS, dispatch a real truck, or persist data outside the browser. Production work starts by implementing the API routes and state machine above, then replacing the local journey store with authenticated server responses and an IndexedDB sync queue.
+## Contribution Guide
+
+1. Create a branch from `main`.
+2. Keep changes small and explain the user problem they solve.
+3. Run the demo verifier, API tests, type checks, and builds that apply to your change.
+4. Keep demo data clearly fictional and do not claim that local actions completed on a remote service.
+5. Update the README or diagrams when behavior, setup, or deployment changes.
+6. Open a pull request with a short summary and test results.
+
+There is no separate contribution file yet, so this section is the working guide.
+
+## Code Of Conduct
+
+Be respectful, patient, and clear. Discuss code and decisions, not people. Do not harass, threaten, expose private information, or submit knowingly unsafe code. Maintainers may remove abusive comments or close contributions that do not follow these rules.
+
+## Troubleshooting
+
+- **`npm ci` fails:** use Node 20 or newer and run the command inside `apps/web` or `apps/api`.
+- **Prisma cannot connect:** check the database URL, make sure PostgreSQL is running, then run `npx prisma generate`.
+- **The API returns `503`:** open the readiness URL and check PostgreSQL, Redis, and MongoDB settings one at a time.
+- **A demo action does not appear in the API:** this is expected. The static demo saves local drafts and simulates network delay.
+- **A Mermaid diagram fails on GitHub:** keep node labels short and avoid advanced styling. Use the SVG diagrams in `docs/diagrams/` when a detailed diagram is needed.
+
+## Known Issues
+
+The Next.js workspace and the no-build demo are two layers, so they do not yet share one live data client. Payment gateway, carrier, notification, and dispatch providers are contracts only. Real authentication, external webhooks, background workers, and production provider adapters still need integration work.
+
+## Roadmap
+
+- Connect the Next.js workspace to authenticated API responses.
+- Add real provider adapters for payments, delivery, notifications, and object storage.
+- Add an organization setup flow with real login and invitation rules.
+- Add background jobs for webhook retries, carrier updates, and payout reconciliation.
+- Add more materials, supplier regions, and stronger production monitoring.
+
+## License
+
+Neev is released under the [MIT License](LICENSE). Copyright 2026 Abhishek Kumar Gautam.
