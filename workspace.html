@@ -81,7 +81,9 @@
       border-right: 1px solid rgba(255,255,255,.08); color: var(--sidebar-ink);
       isolation: isolate;
     }
-    .brand { display: flex; align-items: center; gap: 10px; padding: 2px 10px 24px; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 2px 10px 24px; text-decoration: none; }
+    .brand-logo { width: 112px; height: 52px; display: block; overflow: hidden; border-radius: 12px; background: #f4f1e9; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+    .brand-logo img { width: 100%; height: 100%; display: block; object-fit: cover; }
     .brand-mark {
       width: 32px; height: 32px; border-radius: 11px; display: grid; place-items: center;
       color: #fff; background: linear-gradient(145deg, #e07d4a, #a44937);
@@ -624,7 +626,7 @@
       document.getElementById('app').innerHTML = `
         <div class="app-shell">
           <aside class="sidebar" id="sidebar">
-            <div class="brand"><span class="brand-mark">n</span><div><div class="brand-name">neev</div><div class="brand-sub">build with certainty</div></div></div>
+             <a class="brand" href="index.html" aria-label="Neev home"><span class="brand-logo"><img src="assets/neev-logo.jpg" alt="Neev" /></span></a>
             <div class="pilot-badge"><span class="pilot-dot"></span> Launch zone / NCR East</div>
             <div class="nav-label">${db.mode === 'ops' ? 'Control room' : 'Workspace'}</div>
             <nav class="nav" aria-label="Primary navigation">${nav.map(navButton).join('')}</nav>

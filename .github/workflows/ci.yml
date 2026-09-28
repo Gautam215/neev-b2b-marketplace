@@ -65,9 +65,10 @@ jobs:
       - name: Build preview artifact
         run: |
           rm -rf dist
-          mkdir -p dist
-          cp index.html dist/index.html
-          cp workspace.html dist/workspace.html
+           mkdir -p dist
+           cp index.html dist/index.html
+           cp workspace.html dist/workspace.html
+           cp -R assets dist/assets
 
       - name: Upload preview artifact
         uses: actions/upload-artifact@v4
