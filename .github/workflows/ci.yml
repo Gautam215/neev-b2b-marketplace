@@ -29,13 +29,35 @@ jobs:
       - name: Secret scan
         shell: bash
         run: |
-          if grep -nE '(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|BEGIN (RSA|OPENSSH) PRIVATE KEY)' index.html; then
-            echo "Potential secret found in demo artifact"
-            exit 1
-          fi
+          for artifact in index.html workspace.html; do
+            if grep -nE '(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|BEGIN (RSA|OPENSSH) PRIVATE KEY)' "$artifact"; then
+              echo "Potential secret found in $artifact"
+              exit 1
+            fi
+          done
 
       - name: Static quality, API smoke, and accessibility markers
         run: node scripts/verify-demo.mjs
+
+      - name: Install frontend dependencies
+        working-directory: apps/web
+        run: npm ci --no-audit --no-fund
+
+      - name: Type-check and build frontend
+        working-directory: apps/web
+        run: npm run typecheck && npm run build
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate Prisma Client
+        working-directory: apps/api
+        run: npx prisma generate
+
+      - name: Type-check and test API
+        working-directory: apps/api
+        run: npm run typecheck && npm test -- --run && npm run build
 
       - name: Formatting and whitespace check
         run: git diff --check
@@ -45,6 +67,7 @@ jobs:
           rm -rf dist
           mkdir -p dist
           cp index.html dist/index.html
+          cp workspace.html dist/workspace.html
 
       - name: Upload preview artifact
         uses: actions/upload-artifact@v4
