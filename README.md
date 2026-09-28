@@ -30,22 +30,7 @@ The repository has two frontend layers: the no-build demo (`index.html` and `wor
 ### 1. Frontend UI/UX Flow
 
 This is how a user moves through the interface before any server command is sent:
-
-```mermaid
-flowchart TD
-    A[Buyer or supplier opens Neev] --> B[Choose role view]
-    B --> C[UI renders role-specific journey]
-    C --> D[Enter quantity, delivery area, or inventory action]
-    D --> E[Client validation with React Hook Form and Zod]
-    E -->|Invalid| F[Show inline error and keep draft safe]
-    E -->|Valid| G[Update loading or optimistic UI state]
-    G --> H{Current demo or production command?}
-    H -->|Current demo| I[Save role and draft in localStorage]
-    I --> J[Simulated delay and success or recovery toast]
-    H -->|Production target| K[Send HTTPS JSON command to API]
-    J --> L[Update cards, timeline, and next safe action]
-    K --> L
-```
+See the **Neev marketplace order flow** diagram above. It shows the role selection, client validation, local draft behavior, and the production API handoff.
 
 Frontend responsibilities:
 
@@ -57,46 +42,14 @@ Frontend responsibilities:
 ### 2. Frontend-to-Backend Request Flow
 
 When the production UI is connected to the API, every state-changing action follows this boundary:
-
-```mermaid
-flowchart LR
-    U[Browser UI] -->|HTTPS JSON or signed webhook| S[Express API]
-    S --> M1[Request ID]
-    M1 --> M2[Helmet, CORS, rate limit]
-    M2 --> M3[Body-size and content-type limits]
-    M3 --> M4[JWT and RBAC checks]
-    M4 --> M5[Zod request schema validation]
-    M5 --> R[Route handler]
-    R --> T[Transaction or idempotent command]
-    T --> DB[(PostgreSQL via Prisma)]
-    T --> C[(Redis cache when useful)]
-    R --> O[Structured response]
-    O --> U2[Cards, timeline, toast, or recovery UI]
-    R --> W[Authenticated WebSocket event]
-    W --> U2
-```
+See the **Neev system architecture** diagram above for the browser-to-API boundary and the internal API stages.
 
 The API applies validation again even when the browser already validated the form. A timeout is treated as `pending`; the client should query by `requestId` before retrying. Quote versions, idempotency keys, role permissions, and organization ownership prevent duplicate or unauthorized writes.
 
 ### 3. Backend-to-Database Communication
 
 Neev uses PostgreSQL for transactional marketplace records and MongoDB as an optional document/demo store. These are separate responsibilities, not interchangeable databases:
-
-```mermaid
-flowchart TD
-    R[Express route or release process] --> P[Prisma Client]
-    P --> PG[(Render PostgreSQL)]
-    PG --> PGD[Organizations, users, listings, quotes, orders, payments, dispatch, audit, sustainability]
-    R --> RC[Redis client]
-    RC --> RD[(Render Redis / Valkey)]
-    RD --> RDX[Pricing rules cache and readiness ping]
-    R --> MC[Mongo client]
-    MC --> MTLS[TLS connection, bounded pool, timeouts]
-    MTLS --> MG[(MongoDB Atlas)]
-    MG --> MD[Optional encrypted documents and readiness ping]
-    SEED[seed-mongoose.ts] -->|idempotent upserts and lease lock| MG
-    ENC[AES-256-GCM helper] --> MD
-```
+See the **Neev system architecture** diagram above for PostgreSQL, Redis, MongoDB Atlas, Prisma, and the Mongoose seed boundary.
 
 Database responsibilities:
 
@@ -109,43 +62,14 @@ Database responsibilities:
 ### 4. Marketplace State Flow
 
 The user-visible journey and the backend order ledger follow the same sequence:
-
-```mermaid
-stateDiagram-v2
-    [*] --> NeedCreated: buyer creates material need
-    NeedCreated --> QuoteRequested: request quote
-    QuoteRequested --> QuoteAccepted: current quote accepted
-    QuoteAccepted --> PaymentPending: payment intent created
-    PaymentPending --> PaymentVerified: signed gateway webhook verified
-    PaymentVerified --> DispatchScheduled: supplier selects slot
-    DispatchScheduled --> InTransit: vehicle and load proof added
-    InTransit --> ProofReceived: delivery proof received
-    ProofReceived --> Reconciled: quantity and payout match
-    ProofReceived --> Disputed: mismatch or missing evidence
-    Disputed --> Reconciled: ops resolves dispute
-```
+See the **Neev marketplace order flow** diagram above for the need, quote, payment, dispatch, reconciliation, and dispute states.
 
 Each transition writes the new state and its audit event in one transaction where applicable. Repeated payment webhooks and commands with the same idempotency key return the known outcome instead of creating duplicate orders or payments.
 
 ### 5. Production Release and Readiness Flow
 
 Render uses the same startup path for a safe deploy and for a restart:
-
-```mermaid
-flowchart TD
-    R[Render deploy] --> I[npm run start:production]
-    I --> V[Load compiled Zod environment validation]
-    V --> M[prisma migrate deploy]
-    M --> S{SEED_ON_START enabled?}
-    S -->|Yes| SD[Validate Mongo settings, acquire seed lease, upsert demo data]
-    S -->|No| A[Skip seed]
-    SD --> B[Start compiled API]
-    A --> B
-    B --> C[Connect PostgreSQL, Redis, and optional MongoDB]
-    C --> H[GET /api/v1/health/ready]
-    H -->|PostgreSQL + Redis + MongoDB pass| L[Render marks revision live]
-    H -->|Any dependency fails or times out| X[Exit non-zero and keep last healthy revision]
-```
+See the **Neev Render production release and readiness flow** diagram above for validation, migration, seeding, startup, health checks, and rollback behavior.
 
 The liveness endpoint only proves that the process is running. The readiness endpoint verifies each configured dependency and returns `503` when the API cannot safely serve requests.
 
