@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 420" role="img" aria-labelledby="title desc">
+  <title id="title">Neev production release flow</title>
+  <desc id="desc">Render validates configuration, migrates PostgreSQL, optionally seeds MongoDB, starts the API, and checks readiness.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#52606d"/></marker>
+    <style>
+      .title { font: 700 28px Arial, sans-serif; fill: #18212b; }
+      .subtitle { font: 400 14px Arial, sans-serif; fill: #52606d; }
+      .box { fill: #ffffff; stroke: #b9c7d3; stroke-width: 2; }
+      .green { fill: #eef5e7; stroke: #9dbd72; stroke-width: 2; }
+      .blue { fill: #eaf0f8; stroke: #91a9c6; stroke-width: 2; }
+      .red { fill: #fff1ed; stroke: #d99582; stroke-width: 2; }
+      .heading { font: 700 15px Arial, sans-serif; fill: #18212b; }
+      .small { font: 400 12px Arial, sans-serif; fill: #52606d; }
+      .arrow { stroke: #52606d; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .dashed { stroke-dasharray: 8 7; }
+    </style>
+  </defs>
+  <rect width="1300" height="420" fill="#f8fafb"/>
+  <text x="50" y="50" class="title">Neev production release flow</text>
+  <text x="50" y="76" class="subtitle">A release is live only after migrations, startup, and dependency readiness pass.</text>
+
+  <rect x="50" y="145" width="165" height="95" rx="14" class="box"/>
+  <text x="72" y="181" class="heading">Render deploy</text>
+  <text x="72" y="207" class="small">npm ci + build</text>
+  <text x="72" y="226" class="small">new revision</text>
+
+  <rect x="260" y="145" width="165" height="95" rx="14" class="blue"/>
+  <text x="282" y="181" class="heading">Validate env</text>
+  <text x="282" y="207" class="small">Zod schema</text>
+  <text x="282" y="226" class="small">fail closed</text>
+
+  <rect x="470" y="145" width="165" height="95" rx="14" class="green"/>
+  <text x="492" y="181" class="heading">Migrate</text>
+  <text x="492" y="207" class="small">Prisma deploy</text>
+  <text x="492" y="226" class="small">forward only</text>
+
+  <rect x="680" y="145" width="165" height="95" rx="14" class="green"/>
+  <text x="702" y="181" class="heading">Optional seed</text>
+  <text x="702" y="207" class="small">Mongo lease lock</text>
+  <text x="702" y="226" class="small">idempotent upserts</text>
+
+  <rect x="890" y="145" width="165" height="95" rx="14" class="blue"/>
+  <text x="912" y="181" class="heading">Start API</text>
+  <text x="912" y="207" class="small">PostgreSQL</text>
+  <text x="912" y="226" class="small">Redis + Mongo connect</text>
+
+  <rect x="1100" y="145" width="165" height="95" rx="14" class="green"/>
+  <text x="1122" y="181" class="heading">Readiness</text>
+  <text x="1122" y="207" class="small">health/ready</text>
+  <text x="1122" y="226" class="small">200 -> live</text>
+
+  <path d="M215 192 H260" class="arrow"/>
+  <path d="M425 192 H470" class="arrow"/>
+  <path d="M635 192 H680" class="arrow"/>
+  <path d="M845 192 H890" class="arrow"/>
+  <path d="M1055 192 H1100" class="arrow"/>
+
+  <rect x="310" y="310" width="300" height="55" rx="12" class="red"/>
+  <text x="460" y="334" text-anchor="middle" class="heading">Any migration, seed, or health failure</text>
+  <text x="460" y="353" text-anchor="middle" class="small">exit non-zero; keep last healthy revision</text>
+  <path d="M552 240 C552 275 460 275 460 310" class="arrow dashed"/>
+
+  <rect x="690" y="310" width="300" height="55" rx="12" fill="#ffffff" stroke="#cbd5df" stroke-width="2"/>
+  <text x="840" y="334" text-anchor="middle" class="heading">SIGTERM or SIGINT</text>
+  <text x="840" y="353" text-anchor="middle" class="small">close HTTP and disconnect data services</text>
+  <path d="M972 240 C972 275 840 275 840 310" class="arrow dashed"/>
+</svg>

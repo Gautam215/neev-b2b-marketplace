@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 560" role="img" aria-labelledby="title desc">
+  <title id="title">Neev marketplace order flow</title>
+  <desc id="desc">The buyer, supplier, payment, dispatch, and reconciliation workflow for a Neev order.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#52606d"/></marker>
+    <style>
+      .title { font: 700 28px Arial, sans-serif; fill: #18212b; }
+      .subtitle { font: 400 14px Arial, sans-serif; fill: #52606d; }
+      .step { fill: #ffffff; stroke: #b9c7d3; stroke-width: 2; }
+      .active { fill: #eef5e7; stroke: #9dbd72; stroke-width: 2; }
+      .payment { fill: #eaf0f8; stroke: #91a9c6; stroke-width: 2; }
+      .danger { fill: #fff1ed; stroke: #d99582; stroke-width: 2; }
+      .heading { font: 700 16px Arial, sans-serif; fill: #18212b; }
+      .label { font: 600 13px Arial, sans-serif; fill: #263442; }
+      .small { font: 400 12px Arial, sans-serif; fill: #52606d; }
+      .arrow { stroke: #52606d; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .dashed { stroke-dasharray: 8 7; }
+    </style>
+  </defs>
+  <rect width="1400" height="560" fill="#f8fafb"/>
+  <text x="55" y="54" class="title">Neev marketplace order flow</text>
+  <text x="55" y="80" class="subtitle">Every handoff is validated, role-scoped, version-aware, and recorded for recovery.</text>
+
+  <rect x="55" y="140" width="185" height="130" rx="15" class="active"/>
+  <text x="78" y="177" class="heading">1. Need</text>
+  <text x="78" y="204" class="label">Buyer creates request</text>
+  <text x="78" y="228" class="small">quantity + site + target date</text>
+  <text x="78" y="250" class="small">idempotency key</text>
+
+  <rect x="285" y="140" width="185" height="130" rx="15" class="step"/>
+  <text x="308" y="177" class="heading">2. Quote</text>
+  <text x="308" y="204" class="label">Supplier responds</text>
+  <text x="308" y="228" class="small">price + freight + expiry</text>
+  <text x="308" y="250" class="small">quote version checked</text>
+
+  <rect x="515" y="140" width="185" height="130" rx="15" class="active"/>
+  <text x="538" y="177" class="heading">3. Accept</text>
+  <text x="538" y="204" class="label">Current quote accepted</text>
+  <text x="538" y="228" class="small">optimistic concurrency</text>
+  <text x="538" y="250" class="small">order is created</text>
+
+  <rect x="745" y="140" width="185" height="130" rx="15" class="payment"/>
+  <text x="768" y="177" class="heading">4. Payment</text>
+  <text x="768" y="204" class="label">Gateway intent created</text>
+  <text x="768" y="228" class="small">signed webhook verified</text>
+  <text x="768" y="250" class="small">amount and currency checked</text>
+
+  <rect x="975" y="140" width="185" height="130" rx="15" class="active"/>
+  <text x="998" y="177" class="heading">5. Dispatch</text>
+  <text x="998" y="204" class="label">Slot and vehicle assigned</text>
+  <text x="998" y="228" class="small">proof-of-load attached</text>
+  <text x="998" y="250" class="small">events are append-only</text>
+
+  <rect x="1205" y="140" width="140" height="130" rx="15" class="active"/>
+  <text x="1228" y="177" class="heading">6. Reconcile</text>
+  <text x="1228" y="204" class="small">proof + quantity</text>
+  <text x="1228" y="226" class="small">match -> payout</text>
+  <text x="1228" y="248" class="small">mismatch -> dispute</text>
+
+  <path d="M240 205 H285" class="arrow"/>
+  <path d="M470 205 H515" class="arrow"/>
+  <path d="M700 205 H745" class="arrow"/>
+  <path d="M930 205 H975" class="arrow"/>
+  <path d="M1160 205 H1205" class="arrow"/>
+
+  <rect x="185" y="355" width="1030" height="120" rx="16" fill="#ffffff" stroke="#cbd5df" stroke-width="2"/>
+  <text x="215" y="391" class="heading">Shared safety rules</text>
+  <text x="215" y="417" class="small">Client validation gives fast feedback; API validation is authoritative.</text>
+  <text x="215" y="439" class="small">Timeouts remain pending until the request ID is checked. Repeated webhooks are idempotent.</text>
+  <text x="215" y="461" class="small">A delivery mismatch opens a dispute instead of silently releasing funds.</text>
+
+  <path d="M1275 270 C1275 320 1120 330 1080 355" class="arrow dashed"/>
+  <rect x="1000" y="493" width="215" height="34" rx="9" class="danger"/>
+  <text x="1107" y="515" text-anchor="middle" class="label">Dispute and ops review</text>
+</svg>

@@ -19,6 +19,14 @@ The UI uses Helvetica Neue first, with system sans-serif fallbacks. It uses dark
 
 The repository has two frontend layers: the no-build demo (`index.html` and `workspace.html`) and the production-shaped Next.js scaffold in `apps/web`. The demo and current Next.js summary use local state, browser persistence, and simulated latency. The API contract and data services are implemented separately so the UI can be connected without changing the product workflow.
 
+### Visual Overview
+
+![Neev system architecture: browser UI, Express API, PostgreSQL, Redis, and MongoDB Atlas](docs/diagrams/neev-architecture.svg)
+
+![Neev marketplace order flow from material need to reconciliation](docs/diagrams/neev-order-flow.svg)
+
+![Neev Render production release and readiness flow](docs/diagrams/neev-release-flow.svg)
+
 ### 1. Frontend UI/UX Flow
 
 This is how a user moves through the interface before any server command is sent:

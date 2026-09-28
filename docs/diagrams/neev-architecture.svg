@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 720" role="img" aria-labelledby="title desc">
+  <title id="title">Neev system architecture</title>
+  <desc id="desc">A visual diagram showing the browser UI, Express API, PostgreSQL, Redis, and MongoDB Atlas boundaries.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#52606d"/></marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#6b8f2f"/></marker>
+    <style>
+      .title { font: 700 28px Arial, sans-serif; fill: #18212b; }
+      .subtitle { font: 400 14px Arial, sans-serif; fill: #52606d; }
+      .heading { font: 700 17px Arial, sans-serif; fill: #18212b; }
+      .label { font: 600 13px Arial, sans-serif; fill: #263442; }
+      .small { font: 400 12px Arial, sans-serif; fill: #52606d; }
+      .box { fill: #ffffff; stroke: #cbd5df; stroke-width: 2; }
+      .inner { fill: #f5f8f4; stroke: #d8e3d2; stroke-width: 1.5; }
+      .db { fill: #eef5e7; stroke: #9dbd72; stroke-width: 2; }
+      .api { fill: #eaf0f8; stroke: #91a9c6; stroke-width: 2; }
+      .arrow { stroke: #52606d; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .greenArrow { stroke: #6b8f2f; stroke-width: 2.5; fill: none; marker-end: url(#arrowGreen); }
+      .dashed { stroke-dasharray: 8 7; }
+    </style>
+  </defs>
+
+  <rect width="1400" height="720" fill="#f8fafb"/>
+  <text x="56" y="54" class="title">Neev system architecture</text>
+  <text x="56" y="80" class="subtitle">Current demo state stays local; the production boundary is the HTTPS API and its data services.</text>
+
+  <rect x="55" y="130" width="190" height="185" rx="16" class="box"/>
+  <text x="78" y="164" class="heading">People</text>
+  <rect x="78" y="185" width="144" height="42" rx="9" class="inner"/>
+  <text x="150" y="211" text-anchor="middle" class="label">Buyer</text>
+  <rect x="78" y="239" width="144" height="42" rx="9" class="inner"/>
+  <text x="150" y="265" text-anchor="middle" class="label">Supplier / Ops</text>
+
+  <rect x="300" y="110" width="270" height="280" rx="16" class="box"/>
+  <text x="325" y="145" class="heading">Browser UI</text>
+  <text x="325" y="169" class="small">index.html / workspace.html</text>
+  <text x="325" y="188" class="small">apps/web Next.js scaffold</text>
+  <rect x="325" y="211" width="220" height="48" rx="9" class="inner"/>
+  <text x="435" y="232" text-anchor="middle" class="label">Role view + journey cards</text>
+  <text x="435" y="249" text-anchor="middle" class="small">responsive UI / loading / toast</text>
+  <rect x="325" y="273" width="220" height="48" rx="9" class="inner"/>
+  <text x="435" y="294" text-anchor="middle" class="label">Zod + React Hook Form</text>
+  <text x="435" y="311" text-anchor="middle" class="small">client-side validation</text>
+  <rect x="325" y="335" width="220" height="24" rx="8" fill="#fff6df" stroke="#e6c66e"/>
+  <text x="435" y="352" text-anchor="middle" class="small">localStorage demo drafts</text>
+
+  <rect x="635" y="110" width="295" height="280" rx="16" class="api"/>
+  <text x="660" y="145" class="heading">Express API</text>
+  <text x="660" y="169" class="small">apps/api /api/v1</text>
+  <rect x="660" y="190" width="245" height="39" rx="8" fill="#ffffff" stroke="#c2d2e5"/>
+  <text x="782" y="214" text-anchor="middle" class="label">Security middleware</text>
+  <rect x="660" y="240" width="245" height="39" rx="8" fill="#ffffff" stroke="#c2d2e5"/>
+  <text x="782" y="264" text-anchor="middle" class="label">JWT / RBAC / Zod schemas</text>
+  <rect x="660" y="290" width="245" height="39" rx="8" fill="#ffffff" stroke="#c2d2e5"/>
+  <text x="782" y="314" text-anchor="middle" class="label">Routes + transactions</text>
+  <rect x="660" y="340" width="245" height="24" rx="8" fill="#ffffff" stroke="#c2d2e5"/>
+  <text x="782" y="357" text-anchor="middle" class="small">WebSocket updates</text>
+
+  <rect x="1010" y="100" width="330" height="105" rx="16" class="db"/>
+  <text x="1035" y="135" class="heading">PostgreSQL</text>
+  <text x="1035" y="160" class="small">Prisma source of truth</text>
+  <text x="1035" y="181" class="small">users, listings, quotes, orders, audit</text>
+
+  <rect x="1010" y="235" width="330" height="105" rx="16" class="db"/>
+  <text x="1035" y="270" class="heading">Redis / Valkey</text>
+  <text x="1035" y="295" class="small">pricing-rule cache</text>
+  <text x="1035" y="316" class="small">readiness ping and short TTL fallback</text>
+
+  <rect x="1010" y="370" width="330" height="125" rx="16" class="db"/>
+  <text x="1035" y="405" class="heading">MongoDB Atlas</text>
+  <text x="1035" y="430" class="small">optional document / demo store</text>
+  <text x="1035" y="451" class="small">TLS, bounded pool, AES-256-GCM helper</text>
+  <text x="1035" y="472" class="small">Mongoose seed with lease lock</text>
+
+  <path d="M245 220 H300" class="arrow"/>
+  <path d="M570 240 H635" class="greenArrow"/>
+  <text x="584" y="226" class="small">HTTPS JSON</text>
+  <path d="M545 347 C585 410 610 430 675 430" class="arrow dashed"/>
+  <text x="548" y="421" class="small">demo only</text>
+  <path d="M930 185 H1010" class="greenArrow"/>
+  <path d="M930 285 H1010" class="greenArrow"/>
+  <path d="M930 385 H1010" class="greenArrow"/>
+  <text x="946" y="174" class="small">Prisma</text>
+  <text x="946" y="274" class="small">cache</text>
+  <text x="946" y="374" class="small">Mongo client</text>
+
+  <rect x="55" y="545" width="1285" height="105" rx="16" fill="#ffffff" stroke="#cbd5df" stroke-width="2"/>
+  <text x="80" y="579" class="heading">Important boundary</text>
+  <text x="80" y="606" class="small">The current demo simulates commands locally. Production wiring sends the same validated intent to Express,</text>
+  <text x="80" y="627" class="small">which keeps PostgreSQL transactional, Redis cached, and MongoDB optional for document-shaped data.</text>
+  <line x1="1060" y1="580" x2="1120" y2="580" class="greenArrow"/>
+  <text x="1135" y="585" class="small">production request</text>
+  <line x1="1060" y1="616" x2="1120" y2="616" class="arrow dashed"/>
+  <text x="1135" y="621" class="small">local demo state</text>
+</svg>
