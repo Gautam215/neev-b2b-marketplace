@@ -1,0 +1,87 @@
+name: Neev CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neev-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: PR quality gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Secret scan
+        shell: bash
+        run: |
+          if grep -nE '(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|BEGIN (RSA|OPENSSH) PRIVATE KEY)' index.html; then
+            echo "Potential secret found in demo artifact"
+            exit 1
+          fi
+
+      - name: Static quality, API smoke, and accessibility markers
+        run: node scripts/verify-demo.mjs
+
+      - name: Formatting and whitespace check
+        run: git diff --check
+
+      - name: Build preview artifact
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          cp index.html dist/index.html
+
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: neev-preview-${{ github.sha }}
+          path: dist
+
+  deploy:
+    name: Deploy verified demo
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Download verified preview artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: neev-preview-${{ github.sha }}
+          path: dist
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
