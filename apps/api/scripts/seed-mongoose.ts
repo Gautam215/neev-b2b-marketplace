@@ -1,11 +1,70 @@
 import 'dotenv/config'
+import { randomUUID } from 'node:crypto'
 import mongoose from 'mongoose'
 
 const SEED_VERSION = process.env.SEED_VERSION ?? 'prd-v1-2026-09-28'
 const mongoUri = process.env.MONGODB_URI ?? process.env.MONGODB_URL
 const databaseName = process.env.MONGODB_DATABASE ?? 'neev'
 const maxPoolSize = Number(process.env.MONGODB_POOL_SIZE ?? 10)
+const connectTimeoutMS = Number(process.env.MONGODB_CONNECT_TIMEOUT_MS ?? 5_000)
 const serverSelectionTimeoutMS = Number(process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS ?? 5_000)
+const seedTimeoutMS = Number(process.env.SEED_TIMEOUT_MS ?? 120_000)
+const seedLockLeaseMS = Number(process.env.SEED_LOCK_LEASE_MS ?? 300_000)
+const seedLockId = 'neev-mongoose-seed'
+
+type SeedLock = { _id: string; token: string; leaseUntil: Date; updatedAt: Date; createdAt: Date }
+
+function validateSeedEnvironment() {
+  if (!mongoUri) throw new Error('Set MONGODB_URI or MONGODB_URL before running the seed script')
+  if (process.env.MONGODB_URI && process.env.MONGODB_URL && process.env.MONGODB_URI !== process.env.MONGODB_URL) {
+    throw new Error('MONGODB_URI must match MONGODB_URL when both are configured')
+  }
+  try {
+    const parsed = new URL(mongoUri)
+    if (!['mongodb:', 'mongodb+srv:'].includes(parsed.protocol)) throw new Error('unsupported protocol')
+  } catch {
+    throw new Error('MONGODB_URI must be a valid mongodb:// or mongodb+srv:// URL')
+  }
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(databaseName)) throw new Error('MONGODB_DATABASE is invalid')
+  if (!Number.isInteger(maxPoolSize) || maxPoolSize < 1 || maxPoolSize > 100) throw new Error('MONGODB_POOL_SIZE must be between 1 and 100')
+  if (!Number.isInteger(connectTimeoutMS) || connectTimeoutMS < 100 || connectTimeoutMS > 30_000) throw new Error('MONGODB_CONNECT_TIMEOUT_MS is invalid')
+  if (!Number.isInteger(serverSelectionTimeoutMS) || serverSelectionTimeoutMS < 100 || serverSelectionTimeoutMS > 30_000) throw new Error('MONGODB_SERVER_SELECTION_TIMEOUT_MS is invalid')
+  if (!Number.isInteger(seedTimeoutMS) || seedTimeoutMS < 1_000 || seedTimeoutMS > 600_000) throw new Error('SEED_TIMEOUT_MS is invalid')
+  if (!Number.isInteger(seedLockLeaseMS) || seedLockLeaseMS < seedTimeoutMS) throw new Error('SEED_LOCK_LEASE_MS must exceed SEED_TIMEOUT_MS')
+  if (process.env.NODE_ENV === 'production' && !process.env.MONGODB_ENCRYPTION_KEY) throw new Error('MONGODB_ENCRYPTION_KEY is required in production')
+  if (process.env.MONGODB_ENCRYPTION_KEY && Buffer.from(process.env.MONGODB_ENCRYPTION_KEY, 'base64').length !== 32) throw new Error('MONGODB_ENCRYPTION_KEY must decode to exactly 32 bytes')
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs)
+  })
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer)
+  })
+}
+
+async function acquireSeedLock() {
+  const db = mongoose.connection.db
+  if (!db) throw new Error('MongoDB database handle is unavailable')
+  const token = randomUUID()
+  const now = new Date()
+  try {
+    const lock = await db.collection<SeedLock>('neev_seed_locks').findOneAndUpdate(
+      { _id: seedLockId, $or: [{ leaseUntil: { $lte: now } }, { leaseUntil: { $exists: false } }] },
+      { $set: { token, leaseUntil: new Date(now.getTime() + seedLockLeaseMS), updatedAt: now }, $setOnInsert: { createdAt: now } },
+      { upsert: true, returnDocument: 'after' },
+    )
+    if (!lock || lock.token !== token) throw new Error('Another MongoDB seed is already running')
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 11000) throw new Error('Another MongoDB seed is already running')
+    throw error
+  }
+  return async () => {
+    await db.collection<SeedLock>('neev_seed_locks').deleteOne({ _id: seedLockId, token })
+  }
+}
 
 type SeedDocument = Record<string, unknown> & { seedKey: string; seedVersion: string }
 
@@ -410,29 +469,43 @@ async function upsertSeeded(model: mongoose.Model<Record<string, unknown>>, docu
 }
 
 async function main() {
-  if (!mongoUri) throw new Error('Set MONGODB_URI or MONGODB_URL before running the seed script')
-  await mongoose.connect(mongoUri, { dbName: databaseName, maxPoolSize, serverSelectionTimeoutMS })
-  const counts = {
-    demoUsers: await upsertSeeded(DemoUser, demoUsers),
-    demoVendors: await upsertSeeded(DemoVendor, demoVendors),
-    demoProducts: await upsertSeeded(DemoProduct, demoProducts),
-    demoInventory: await upsertSeeded(DemoInventory, demoInventory),
-    demoOrders: await upsertSeeded(DemoOrder, demoOrders),
-    demoQuotes: await upsertSeeded(DemoQuote, demoQuotes),
-    pricingTiers: await upsertSeeded(PricingTier, pricingTiers),
-    volumeDiscounts: await upsertSeeded(VolumeDiscount, volumeDiscounts),
-    logisticsFees: await upsertSeeded(LogisticsFee, logisticsFees),
-    taxRates: await upsertSeeded(TaxRate, taxRates),
-    sustainabilityMetrics: await upsertSeeded(SustainabilityMetric, sustainabilityMetrics),
-    mockTestData: await upsertSeeded(MockTestData, mockTestData),
+  validateSeedEnvironment()
+  await mongoose.connect(mongoUri!, {
+    dbName: databaseName,
+    maxPoolSize,
+    connectTimeoutMS,
+    serverSelectionTimeoutMS,
+    socketTimeoutMS: seedTimeoutMS,
+    tls: process.env.MONGODB_TLS !== 'false',
+  })
+  const releaseLock = await acquireSeedLock()
+  try {
+    await withTimeout((async () => {
+      const counts = {
+        demoUsers: await upsertSeeded(DemoUser, demoUsers),
+        demoVendors: await upsertSeeded(DemoVendor, demoVendors),
+        demoProducts: await upsertSeeded(DemoProduct, demoProducts),
+        demoInventory: await upsertSeeded(DemoInventory, demoInventory),
+        demoOrders: await upsertSeeded(DemoOrder, demoOrders),
+        demoQuotes: await upsertSeeded(DemoQuote, demoQuotes),
+        pricingTiers: await upsertSeeded(PricingTier, pricingTiers),
+        volumeDiscounts: await upsertSeeded(VolumeDiscount, volumeDiscounts),
+        logisticsFees: await upsertSeeded(LogisticsFee, logisticsFees),
+        taxRates: await upsertSeeded(TaxRate, taxRates),
+        sustainabilityMetrics: await upsertSeeded(SustainabilityMetric, sustainabilityMetrics),
+        mockTestData: await upsertSeeded(MockTestData, mockTestData),
+      }
+      await SeedRun.updateOne(
+        { seedVersion: SEED_VERSION },
+        { $set: { source: 'apps/api/scripts/seed-mongoose.ts', counts, executedAt: new Date() } },
+        { upsert: true },
+      )
+      console.log(`Seeded MongoDB database "${mongoose.connection.name}" with ${Object.values(counts).reduce((total, count) => total + count, 0)} documents for ${SEED_VERSION}`)
+      console.log(JSON.stringify(counts))
+    })(), seedTimeoutMS, `MongoDB seed timed out after ${seedTimeoutMS}ms`)
+  } finally {
+    await releaseLock()
   }
-  await SeedRun.updateOne(
-    { seedVersion: SEED_VERSION },
-    { $set: { source: 'apps/api/scripts/seed-mongoose.ts', counts, executedAt: new Date() } },
-    { upsert: true },
-  )
-  console.log(`Seeded MongoDB database "${mongoose.connection.name}" with ${Object.values(counts).reduce((total, count) => total + count, 0)} documents for ${SEED_VERSION}`)
-  console.log(JSON.stringify(counts))
 }
 
 main()

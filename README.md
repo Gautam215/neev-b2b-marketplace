@@ -48,6 +48,20 @@ npm run seed:mongoose
 
 The idempotent Mongoose seeder creates the PRD demo volumes of 12 users, 8 vendors, 24 products, 24 inventory snapshots, 18 orders, and 30 quotes, plus pricing tiers, volume discounts, logistics fees, tax rates, sustainability metrics, five explicit edge-case fixtures, and a seed-run record. It upserts only documents tagged with its seed version and never deletes unrelated data.
 
+### Production Release Workflow
+
+The API release is intentionally fail-closed. Render runs `npm run start:production` from `apps/api`; the release runner validates the environment through the compiled Zod schema, applies committed Prisma migrations with `prisma migrate deploy`, optionally runs the MongoDB seed when `SEED_ON_START=true`, starts the compiled server, and waits for `/api/v1/health/ready` before declaring the process ready.
+
+- Set `DATABASE_SSL_MODE=require` in production. The Prisma client also appends bounded `connection_limit` and `pool_timeout` values from `DATABASE_POOL_SIZE` and `DATABASE_POOL_TIMEOUT_SECONDS`.
+- Set `MONGODB_URI` and `MONGODB_URL` to the same Atlas URL when both are present. `MONGODB_ENCRYPTION_KEY` must be base64 and decode to exactly 32 bytes; Atlas connections use TLS by default.
+- Keep `STARTUP_TIMEOUT_MS`, `SHUTDOWN_TIMEOUT_MS`, `HEALTH_CHECK_TIMEOUT_MS`, and `SEED_TIMEOUT_MS` bounded. A timeout exits the release instead of serving a partially initialized API.
+- `SEED_ON_START=false` is the safe default. Enable it for the demo environment only; the seed is idempotent, validates all Mongo settings, uses bounded connection/socket timeouts, and takes a lease-based Mongo lock so concurrent deploys cannot seed at the same time.
+- A failed migration, seed, or readiness check returns a non-zero exit code. Render keeps the last healthy revision available for rollback; database migrations are forward-only and are never destructively auto-reversed.
+- SIGTERM and SIGINT are forwarded through the release runner. The API closes its HTTP listener and disconnects PostgreSQL, Redis, and MongoDB within the shutdown timeout. Unexpected exceptions exit non-zero so Render's restart policy can recover the service.
+- Render's `/api/v1/health/live` endpoint is liveness-only. `/api/v1/health/ready` checks PostgreSQL, Redis, and configured MongoDB independently with per-check timeouts and returns `503` when any dependency is unavailable.
+- Run `npm run test:ci` for the Vitest contract suite, `npm run typecheck` and `npm run build` for compile checks, and `npm run audit:prod` for the production dependency audit. The repository uses Vitest; Jest is not required by this project.
+- Do not commit `.env` files, Atlas URLs, passwords, JWT secrets, webhook secrets, or encryption keys. Store them in Render environment variables and rotate them through Render when compromised.
+
 The API exposes `GET /api/v1/health/live` without dependencies and `GET /api/v1/health/ready` when PostgreSQL and Redis are connected. JWTs are expected to carry `sub`, `organizationId`, and a non-empty `roles` array. Webhook requests must carry an HMAC-SHA256 signature. Never use the example JWT or webhook secrets in production.
 
 The demo stores non-sensitive state in the browser:

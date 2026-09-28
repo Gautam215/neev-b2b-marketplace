@@ -6,29 +6,53 @@ import { prisma } from './lib/prisma.js'
 import { logger } from './lib/logger.js'
 import { attachRealtime } from './lib/realtime.js'
 import { closeMongo, connectMongo } from './lib/mongo.js'
+import { withTimeout } from './lib/timeouts.js'
 
 const app = createApp()
 const server = createServer(app)
 attachRealtime(server)
 
+let shuttingDown = false
+
 async function start() {
-  await prisma.$connect()
-  await connectRedis()
-  await connectMongo()
-  server.listen(env.PORT, () => logger.info({ port: env.PORT }, 'neev api listening'))
+  await withTimeout(prisma.$connect(), env.STARTUP_TIMEOUT_MS, 'postgres startup timed out')
+  await withTimeout(connectRedis(), env.STARTUP_TIMEOUT_MS, 'redis startup timed out')
+  await withTimeout(connectMongo(), env.STARTUP_TIMEOUT_MS, 'mongo startup timed out')
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(env.PORT, () => resolve())
+  })
+  logger.info({ port: env.PORT }, 'neev api listening')
 }
 
-async function shutdown(signal: string) {
+async function shutdown(signal: string, exitCode = 0) {
+  if (shuttingDown) return
+  shuttingDown = true
   logger.info({ signal }, 'shutting down')
-  server.close(async () => {
-    await Promise.allSettled([prisma.$disconnect(), closeRedis(), closeMongo()])
-    process.exit(0)
-  })
+  const closeServer = server.listening
+    ? new Promise<void>((resolve) => server.close(() => resolve()))
+    : Promise.resolve()
+  await Promise.allSettled([
+    withTimeout(closeServer, env.SHUTDOWN_TIMEOUT_MS, 'http server shutdown timed out'),
+    withTimeout(prisma.$disconnect(), env.SHUTDOWN_TIMEOUT_MS, 'postgres shutdown timed out'),
+    withTimeout(closeRedis(), env.SHUTDOWN_TIMEOUT_MS, 'redis shutdown timed out'),
+    withTimeout(closeMongo(), env.SHUTDOWN_TIMEOUT_MS, 'mongo shutdown timed out'),
+  ])
+  process.exit(exitCode)
 }
 
 process.once('SIGTERM', () => void shutdown('SIGTERM'))
 process.once('SIGINT', () => void shutdown('SIGINT'))
+process.once('uncaughtException', (error) => {
+  logger.fatal({ err: error }, 'uncaught exception')
+  void shutdown('uncaughtException', 1)
+})
+process.once('unhandledRejection', (error) => {
+  logger.fatal({ err: error }, 'unhandled rejection')
+  void shutdown('unhandledRejection', 1)
+})
+
 start().catch((error) => {
   logger.fatal({ err: error }, 'api failed to start')
-  process.exit(1)
+  void shutdown('startup failure', 1)
 })

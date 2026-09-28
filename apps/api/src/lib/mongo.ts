@@ -60,7 +60,9 @@ export async function connectMongo() {
   decodeMongoEncryptionKey()
   const nextClient = new MongoClient(env.MONGODB_URL, {
     maxPoolSize: env.MONGODB_POOL_SIZE,
+    connectTimeoutMS: env.MONGODB_CONNECT_TIMEOUT_MS,
     serverSelectionTimeoutMS: env.MONGODB_SERVER_SELECTION_TIMEOUT_MS,
+    tls: env.MONGODB_TLS,
   })
   await nextClient.connect()
   client = nextClient
