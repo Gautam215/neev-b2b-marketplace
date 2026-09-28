@@ -15,6 +15,143 @@ Neev is a hyper-local B2C/B2B red-brick marketplace prototype for the NCR East l
 
 The UI uses Helvetica Neue first, with system sans-serif fallbacks. It uses dark surfaces, thin borders, generous spacing, restrained motion, and direct actions rather than a dense dashboard aesthetic.
 
+## System Workflow Diagrams
+
+The repository has two frontend layers: the no-build demo (`index.html` and `workspace.html`) and the production-shaped Next.js scaffold in `apps/web`. The demo and current Next.js summary use local state, browser persistence, and simulated latency. The API contract and data services are implemented separately so the UI can be connected without changing the product workflow.
+
+### 1. Frontend UI/UX Flow
+
+This is how a user moves through the interface before any server command is sent:
+
+```mermaid
+flowchart TD
+    A[Buyer or supplier opens Neev] --> B[Choose role view]
+    B --> C[UI renders role-specific journey]
+    C --> D[Enter quantity, delivery area, or inventory action]
+    D --> E[Client validation with React Hook Form and Zod]
+    E -->|Invalid| F[Show inline error and keep draft safe]
+    E -->|Valid| G[Update loading or optimistic UI state]
+    G --> H{Current demo or production command?}
+    H -->|Current demo| I[Save role and draft in localStorage]
+    I --> J[Simulated delay and success or recovery toast]
+    H -->|Production target| K[Send HTTPS JSON command to API]
+    J --> L[Update cards, timeline, and next safe action]
+    K --> L
+```
+
+Frontend responsibilities:
+
+- `apps/web/components/executive-summary.tsx` owns the role switch, form validation, loading state, toast feedback, and local draft persistence.
+- `index.html` and `workspace.html` are deterministic demo artifacts; they do not claim that a payment, dispatch, or remote write succeeded.
+- `apps/web` provides the production-shaped component and UI primitives. Its `/workspace` route is the handoff point for the full operations workspace.
+- Sensitive payment data is never stored in localStorage. Local storage contains only role, draft, and demo interaction state.
+
+### 2. Frontend-to-Backend Request Flow
+
+When the production UI is connected to the API, every state-changing action follows this boundary:
+
+```mermaid
+flowchart LR
+    U[Browser UI] -->|HTTPS JSON or signed webhook| S[Express API]
+    S --> M1[Request ID]
+    M1 --> M2[Helmet, CORS, rate limit]
+    M2 --> M3[Body-size and content-type limits]
+    M3 --> M4[JWT and RBAC checks]
+    M4 --> M5[Zod request schema validation]
+    M5 --> R[Route handler]
+    R --> T[Transaction or idempotent command]
+    T --> DB[(PostgreSQL via Prisma)]
+    T --> C[(Redis cache when useful)]
+    R --> O[Structured response]
+    O --> U2[Cards, timeline, toast, or recovery UI]
+    R --> W[Authenticated WebSocket event]
+    W --> U2
+```
+
+The API applies validation again even when the browser already validated the form. A timeout is treated as `pending`; the client should query by `requestId` before retrying. Quote versions, idempotency keys, role permissions, and organization ownership prevent duplicate or unauthorized writes.
+
+### 3. Backend-to-Database Communication
+
+Neev uses PostgreSQL for transactional marketplace records and MongoDB as an optional document/demo store. These are separate responsibilities, not interchangeable databases:
+
+```mermaid
+flowchart TD
+    R[Express route or release process] --> P[Prisma Client]
+    P --> PG[(Render PostgreSQL)]
+    PG --> PGD[Organizations, users, listings, quotes, orders, payments, dispatch, audit, sustainability]
+    R --> RC[Redis client]
+    RC --> RD[(Render Redis / Valkey)]
+    RD --> RDX[Pricing rules cache and readiness ping]
+    R --> MC[Mongo client]
+    MC --> MTLS[TLS connection, bounded pool, timeouts]
+    MTLS --> MG[(MongoDB Atlas)]
+    MG --> MD[Optional encrypted documents and readiness ping]
+    SEED[seed-mongoose.ts] -->|idempotent upserts and lease lock| MG
+    ENC[AES-256-GCM helper] --> MD
+```
+
+Database responsibilities:
+
+- **PostgreSQL + Prisma** is the source of truth for business transactions. Prisma migrations create and evolve the relational schema, and route handlers use parameterized queries.
+- **Redis** is used for pricing-rule caching and dependency readiness. Cache misses fall back to versioned defaults.
+- **MongoDB Atlas** is optional in the API runtime. `connectMongo()` validates the encryption key, uses TLS and bounded timeouts, and powers readiness checks. The encrypted document helpers use AES-256-GCM.
+- **Mongoose seed data** is written by `apps/api/scripts/seed-mongoose.ts` into tagged demo collections. The seed is idempotent and does not delete unrelated MongoDB data.
+- The current domain routes primarily read and write PostgreSQL. MongoDB seed/readiness/encrypted-store support is available as a separate boundary for document-shaped data.
+
+### 4. Marketplace State Flow
+
+The user-visible journey and the backend order ledger follow the same sequence:
+
+```mermaid
+stateDiagram-v2
+    [*] --> NeedCreated: buyer creates material need
+    NeedCreated --> QuoteRequested: request quote
+    QuoteRequested --> QuoteAccepted: current quote accepted
+    QuoteAccepted --> PaymentPending: payment intent created
+    PaymentPending --> PaymentVerified: signed gateway webhook verified
+    PaymentVerified --> DispatchScheduled: supplier selects slot
+    DispatchScheduled --> InTransit: vehicle and load proof added
+    InTransit --> ProofReceived: delivery proof received
+    ProofReceived --> Reconciled: quantity and payout match
+    ProofReceived --> Disputed: mismatch or missing evidence
+    Disputed --> Reconciled: ops resolves dispute
+```
+
+Each transition writes the new state and its audit event in one transaction where applicable. Repeated payment webhooks and commands with the same idempotency key return the known outcome instead of creating duplicate orders or payments.
+
+### 5. Production Release and Readiness Flow
+
+Render uses the same startup path for a safe deploy and for a restart:
+
+```mermaid
+flowchart TD
+    R[Render deploy] --> I[npm run start:production]
+    I --> V[Load compiled Zod environment validation]
+    V --> M[prisma migrate deploy]
+    M --> S{SEED_ON_START enabled?}
+    S -->|Yes| SD[Validate Mongo settings, acquire seed lease, upsert demo data]
+    S -->|No| A[Skip seed]
+    SD --> B[Start compiled API]
+    A --> B
+    B --> C[Connect PostgreSQL, Redis, and optional MongoDB]
+    C --> H[GET /api/v1/health/ready]
+    H -->|PostgreSQL + Redis + MongoDB pass| L[Render marks revision live]
+    H -->|Any dependency fails or times out| X[Exit non-zero and keep last healthy revision]
+```
+
+The liveness endpoint only proves that the process is running. The readiness endpoint verifies each configured dependency and returns `503` when the API cannot safely serve requests.
+
+### Implementation Status
+
+| Boundary | Current state | Main code path |
+| --- | --- | --- |
+| UI/UX demo | Implemented with role views, validation, loading states, local drafts, recovery toasts, and responsive cards. | `index.html`, `workspace.html`, `apps/web/components/executive-summary.tsx` |
+| Frontend to API | API contract and route shapes are implemented; the demo UI still simulates commands locally. | `README.md` routes table, `apps/api/src/app.ts` |
+| Transactional database | Implemented through Prisma migrations and PostgreSQL. | `apps/api/prisma/schema.prisma`, `apps/api/src/lib/prisma.ts` |
+| Cache and readiness | Implemented through Redis/Valkey. | `apps/api/src/lib/redis.ts`, `apps/api/src/routes/health.ts` |
+| MongoDB | Startup connection, readiness ping, encrypted document helpers, and idempotent Mongoose seed are implemented. | `apps/api/src/lib/mongo.ts`, `apps/api/scripts/seed-mongoose.ts` |
+| Payments and dispatch providers | Contract and state boundaries exist; real external provider adapters remain a production integration task. | `apps/api/src/routes/payments.ts`, `apps/api/src/routes/dispatches.ts` |
+
 ## Run Locally
 
 Open `index.html` in a browser for the public homepage. Open `workspace.html` for the operations view. No build step is required.
