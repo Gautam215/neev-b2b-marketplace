@@ -1,8 +1,9 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f5f2" />
   <meta name="description" content="Neev - hyper-local red brick supply marketplace demo" />
   <title>Neev | Build local, build with certainty</title>
   <style>
@@ -57,6 +58,8 @@
     * { box-sizing: border-box; }
     html { min-width: 320px; }
     body {
+      position: relative;
+      isolation: isolate;
       margin: 0;
       background: var(--bg);
       color: var(--ink);
@@ -67,9 +70,11 @@
       text-rendering: optimizeLegibility;
       transition: background .18s ease, color .18s ease;
     }
+    body::before { content: ''; position: fixed; z-index: -1; inset: 0; pointer-events: none; background: radial-gradient(circle at 94% -8%, rgba(47,109,246,.08), transparent 29%), radial-gradient(circle at 4% 82%, rgba(46,139,103,.05), transparent 24%); animation: ambient-drift 18s ease-in-out infinite alternate; }
+    [data-theme="dark"] body::before { background: radial-gradient(circle at 92% -8%, rgba(125,161,255,.15), transparent 31%), radial-gradient(circle at 8% 76%, rgba(109,209,157,.08), transparent 25%); }
     button, input, select, textarea { font: inherit; -webkit-tap-highlight-color: transparent; }
     button { cursor: pointer; }
-    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
       outline: 3px solid rgba(47, 109, 246, .28);
       outline-offset: 2px;
     }
@@ -263,7 +268,8 @@
       .top-actions { gap: 6px; }
       .mode-switch { display: none !important; }
     }
-    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+     @keyframes ambient-drift { from { transform: translate3d(-1%, -1%, 0) scale(1); } to { transform: translate3d(1%, 1%, 0) scale(1.04); } }
+     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
   </style>
 </head>
 <body>
@@ -613,7 +619,7 @@
     };
     const stars = rating => `${icon('star')} ${rating}`;
     const breadcrumb = title => `<div class="crumb"><span>${modeLabel()}</span>${icon('chevron')}<strong>${title}</strong></div>`;
-    const navButton = ([id, label, glyph]) => `<button class="${db.view === id ? 'active' : ''}" data-nav="${id}">${icon(glyph)}<span>${label}</span>${id === 'quotes' && db.quotes.some(q => q.status === 'COUNTERED') ? '<span class="count">1</span>' : ''}</button>`;
+     const navButton = ([id, label, glyph]) => `<button class="${db.view === id ? 'active' : ''}" data-nav="${id}"${db.view === id ? ' aria-current="page"' : ''}>${icon(glyph)}<span>${label}</span>${id === 'quotes' && db.quotes.some(q => q.status === 'COUNTERED') ? '<span class="count">1</span>' : ''}</button>`;
     const navForMode = () => {
       if (db.mode === 'vendor') return [['overview', 'Today', 'grid'], ['inventory', 'Inventory', 'package'], ['requests', 'Buyer requests', 'quote'], ['offers', 'Offers', 'quote'], ['orders', 'Orders', 'truck'], ['business', 'Business profile', 'site']];
       if (db.mode === 'ops') return adminItems;
@@ -639,13 +645,13 @@
           <div class="mobile-overlay hidden" id="mobile-overlay"></div>
           <main class="main">
              <header class="topbar">
-               <button class="icon-button hidden" id="mobile-menu" aria-label="Open navigation">${icon('menu')}</button>
+               <button class="icon-button hidden" id="mobile-menu" aria-label="Open navigation" aria-expanded="false">${icon('menu')}</button>
                <a class="mobile-brand" href="index.html" aria-label="Neev home"><span class="brand-logo"><img src="assets/neev-logo.jpg" alt="Neev" /></span></a>
                ${breadcrumb(pageTitle())}
               <div class="top-actions">
                 <label class="search">${icon('search')}<input id="global-search" placeholder="Search demo records" aria-label="Search demo records" /></label>
                 <div class="mode-switch" aria-label="Switch workspace"><button class="${db.mode === 'buyer' ? 'active' : ''}" data-mode="buyer">Buyer</button><button class="${db.mode === 'vendor' ? 'active' : ''}" data-mode="vendor">Vendor</button><button class="${db.mode === 'ops' ? 'active' : ''}" data-mode="ops">Ops</button></div>
-                <button class="icon-button" data-action="theme" aria-label="Toggle theme">${icon(db.theme === 'dark' ? 'sun' : 'moon')}<span class="notification-dot hidden"></span></button>
+                 <button class="icon-button" data-action="theme" aria-label="Switch to ${db.theme === 'dark' ? 'light' : 'dark'} mode" title="Switch to ${db.theme === 'dark' ? 'light' : 'dark'} mode">${icon(db.theme === 'dark' ? 'sun' : 'moon')}<span class="notification-dot hidden"></span></button>
                 <button class="icon-button" data-action="notifications" aria-label="Notifications">${icon('bell')}<span class="notification-dot"></span></button>
                 <button class="avatar" aria-label="Account">AR</button>
               </div>
@@ -658,15 +664,15 @@
     function bindShellEvents() {
       document.querySelectorAll('[data-nav]').forEach(button => button.addEventListener('click', () => { db.view = button.dataset.nav; save(); render(); }));
       document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => { db.mode = button.dataset.mode; db.view = db.mode === 'buyer' ? 'overview' : db.mode === 'vendor' ? 'overview' : 'operations'; save(); render(); }));
-      document.querySelectorAll('[data-action="theme"]').forEach(button => button.addEventListener('click', () => { db.theme = db.theme === 'dark' ? 'light' : 'dark'; save(); render(); }));
+      document.querySelectorAll('[data-action="theme"]').forEach(button => button.addEventListener('click', () => { db.theme = db.theme === 'dark' ? 'light' : 'dark'; document.querySelector('meta[name="theme-color"]')?.setAttribute('content', db.theme === 'dark' ? '#151917' : '#f5f5f2'); save(); render(); }));
       document.querySelectorAll('[data-action="create-need"]').forEach(button => button.addEventListener('click', () => openNeedModal()));
       document.querySelectorAll('[data-action="reset-demo"]').forEach(button => button.addEventListener('click', resetDemo));
       document.querySelectorAll('[data-action="notifications"]').forEach(button => button.addEventListener('click', () => openNotifications()));
       document.getElementById('global-search')?.addEventListener('keydown', event => { if (event.key === 'Enter') { db.view = db.mode === 'buyer' ? 'suppliers' : 'inventory'; save(); render(); toast('Search opened', `Showing records matching “${event.target.value || 'all'}”.`); } });
       const mobileMenu = document.getElementById('mobile-menu');
       mobileMenu?.classList.toggle('hidden', window.innerWidth > 760);
-      mobileMenu?.addEventListener('click', () => { document.getElementById('sidebar').classList.add('open'); document.getElementById('mobile-overlay').classList.remove('hidden'); });
-      document.getElementById('mobile-overlay')?.addEventListener('click', () => { document.getElementById('sidebar').classList.remove('open'); document.getElementById('mobile-overlay').classList.add('hidden'); });
+      mobileMenu?.addEventListener('click', () => { document.getElementById('sidebar').classList.add('open'); document.getElementById('mobile-overlay').classList.remove('hidden'); mobileMenu.setAttribute('aria-expanded', 'true'); });
+      document.getElementById('mobile-overlay')?.addEventListener('click', () => { document.getElementById('sidebar').classList.remove('open'); document.getElementById('mobile-overlay').classList.add('hidden'); mobileMenu?.setAttribute('aria-expanded', 'false'); });
     }
     const pageHeader = (eyebrow, title, description, actions = '') => `<div class="page-header"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1>${description ? `<p class="subhead">${description}</p>` : ''}</div><div class="header-actions">${actions}</div></div>`;
     const sectionHead = (title, action = '', detail = '') => `<div class="section-head"><div><h2>${title}</h2>${detail ? `<div class="muted">${detail}</div>` : ''}</div>${action}</div>`;
@@ -874,7 +880,7 @@
       region.innerHTML = `<div class="toast" id="${toastId}"><div class="toast-icon" style="${tone === 'error' ? 'background:var(--red-2);color:var(--red)' : ''}">${icon(tone === 'error' ? 'alert' : 'check')}</div><div><strong>${title}</strong><span>${message}</span></div></div>`;
       setTimeout(() => document.getElementById(toastId)?.remove(), 4200);
     }
-    window.addEventListener('resize', () => document.getElementById('mobile-menu')?.classList.toggle('hidden', window.innerWidth > 760));
+    window.addEventListener('resize', () => { const menu = document.getElementById('mobile-menu'); menu?.classList.toggle('hidden', window.innerWidth > 760); if (window.innerWidth > 760) { document.getElementById('sidebar')?.classList.remove('open'); document.getElementById('mobile-overlay')?.classList.add('hidden'); menu?.setAttribute('aria-expanded', 'false'); } });
     window.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
     render();
   </script>
