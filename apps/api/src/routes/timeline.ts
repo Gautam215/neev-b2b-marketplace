@@ -1,11 +1,11 @@
 import { Router } from 'express'
-import { authenticate } from '../middleware/auth.js'
+import { authenticate, requirePermissions } from '../middleware/auth.js'
 import { prisma } from '../lib/prisma.js'
 import { HttpError } from '../middleware/errors.js'
 
 export const timelineRouter = Router()
 
-timelineRouter.get('/:orderId/timeline', authenticate, async (request, response) => {
+timelineRouter.get('/:orderId/timeline', authenticate, requirePermissions('timeline:read'), async (request, response) => {
   const orderId = request.params.orderId
   if (!orderId || Array.isArray(orderId)) throw new HttpError(400, 'Order id is required')
   const order = await prisma.order.findUnique({

@@ -29,6 +29,11 @@ export const dispatchSchema = z.object({
   proofUrl: z.string().url().optional(),
 })
 
+export const dispatchProofSchema = z.object({
+  deliveredPieces: z.number().int().positive(),
+  proofUrl: z.string().url(),
+}).strict()
+
 export const quoteAcceptSchema = z.object({
   quoteVersion: z.number().int().positive(),
 })
@@ -37,6 +42,17 @@ export const paymentIntentSchema = z.object({
   orderId: z.string().min(1),
   gateway: z.enum(['razorpay', 'stripe']),
 })
+
+export const paymentWebhookSchema = z.object({
+  eventId: z.string().trim().min(1).max(160),
+  eventType: z.enum(['payment.captured', 'payment.failed']),
+  paymentIntentId: z.string().trim().min(1),
+  orderId: z.string().trim().min(1),
+  providerRef: z.string().trim().min(1),
+  amount: z.coerce.number().positive().max(100000000),
+  currency: z.literal('INR'),
+  occurredAt: z.coerce.date(),
+}).strict()
 
 export const pricingCalculateSchema = z.object({
   quantity: z.coerce.number().int().min(1000).max(5000000),

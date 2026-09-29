@@ -1,25 +1,31 @@
 import type { Server } from 'node:http'
 import { WebSocket, WebSocketServer } from 'ws'
-import jwt, { type JwtPayload } from 'jsonwebtoken'
 import { env } from '../config/env.js'
 import { logger } from './logger.js'
+import { prisma } from './prisma.js'
+import { userMatchesAccessToken, verifyAccessToken } from '../middleware/auth.js'
 
 let socketServer: WebSocketServer | undefined
-const socketOrganizations = new Map<WebSocket, { organizationId: string; isAlive: boolean }>()
+const socketOrganizations = new Map<WebSocket, { organizationId: string; userId: string; isAlive: boolean }>()
 
 export function attachRealtime(server: Server) {
   socketServer = new WebSocketServer({ server, path: '/ws', maxPayload: env.MAX_WS_MESSAGE_BYTES })
-  socketServer.on('connection', (socket, request) => {
-    const queryToken = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`).searchParams.get('token')
+  socketServer.on('connection', async (socket, request) => {
     const headerToken = typeof request.headers.authorization === 'string' && request.headers.authorization.startsWith('Bearer ')
       ? request.headers.authorization.slice('Bearer '.length)
       : undefined
-    const token = headerToken ?? queryToken
+    const protocolHeader = request.headers['sec-websocket-protocol']
+    const protocolValues = typeof protocolHeader === 'string' ? protocolHeader.split(',').map((value) => value.trim()) : []
+    const protocolToken = protocolValues[0] === 'bearer' ? protocolValues[1] : undefined
+    const token = headerToken ?? protocolToken
     try {
       if (!token) throw new Error('missing token')
-      const claims = jwt.verify(token, env.JWT_SECRET) as JwtPayload & { organizationId?: unknown; roles?: unknown }
-      if (typeof claims.organizationId !== 'string' || !Array.isArray(claims.roles) || claims.roles.length === 0) throw new Error('incomplete access claims')
-      socketOrganizations.set(socket, { organizationId: claims.organizationId, isAlive: true })
+      const claims = verifyAccessToken(token)
+      if (env.AUTH_REQUIRE_USER_LOOKUP) {
+        const user = await prisma.user.findUnique({ where: { id: claims.sub }, select: { id: true, organizationId: true, roles: true, isActive: true } })
+        if (!user || !userMatchesAccessToken(claims, user)) throw new Error('user is not active')
+      }
+      socketOrganizations.set(socket, { organizationId: claims.organizationId, userId: claims.sub, isAlive: true })
       socket.send(JSON.stringify({ type: 'connected', organizationId: claims.organizationId }))
     } catch {
       logger.warn({ event: 'security.websocket_rejected', remoteAddress: request.socket.remoteAddress }, 'websocket authentication rejected')

@@ -41,125 +41,156 @@ enum OrderStatus {
   DISPUTED
 }
 
+enum PaymentWebhookStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
 model Organization {
-  id                   String                @id @default(cuid())
-  name                 String
-  users                User[]
-  listings             InventoryListing[]
-  buyerRequests        QuoteRequest[]        @relation("BuyerRequests")
+  id                    String                 @id @default(cuid())
+  name                  String
+  users                 User[]
+  listings              InventoryListing[]
+  buyerRequests         QuoteRequest[]         @relation("BuyerRequests")
   sustainabilityMetrics SustainabilityMetric[]
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  email              String              @unique
-  name               String
-  roles              Role[]
-  organizationId     String
-  organization       Organization        @relation(fields: [organizationId], references: [id])
-  quoteRequests      QuoteRequest[]      @relation("BuyerQuoteRequests")
-  supplierQuotes     Quote[]             @relation("SupplierQuotes")
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  id             String         @id @default(cuid())
+  email          String         @unique
+  name           String
+  roles          Role[]
+  isActive       Boolean        @default(true)
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  quoteRequests  QuoteRequest[] @relation("BuyerQuoteRequests")
+  supplierQuotes Quote[]        @relation("SupplierQuotes")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }
 
 model InventoryListing {
-  id                String       @id @default(cuid())
-  supplierId        String
-  supplier          Organization @relation(fields: [supplierId], references: [id])
-  sku               String
-  grade             String
-  location          String
-  availablePieces   Int
-  pricePerPiece     Decimal      @db.Decimal(12, 2)
-  leadTimeDays      Int
-  version           Int          @default(1)
-  publishedAt       DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id              String       @id @default(cuid())
+  supplierId      String
+  supplier        Organization @relation(fields: [supplierId], references: [id])
+  sku             String
+  grade           String
+  location        String
+  availablePieces Int
+  pricePerPiece   Decimal      @db.Decimal(12, 2)
+  leadTimeDays    Int
+  version         Int          @default(1)
+  publishedAt     DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   @@index([supplierId, updatedAt])
   @@index([grade, location])
 }
 
 model QuoteRequest {
-  id             String             @id @default(cuid())
-  buyerId        String
-  buyer          User               @relation("BuyerQuoteRequests", fields: [buyerId], references: [id])
-  buyerOrgId     String
-  buyerOrg       Organization       @relation("BuyerRequests", fields: [buyerOrgId], references: [id])
-  quantity       Int
-  deliveryArea   String
-  targetDate     DateTime?
-  expiresAt      DateTime?
-  idempotencyKey String             @unique
-  status         QuoteRequestStatus @default(REQUESTED)
-  quotes         Quote[]
-  order          Order?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  id              String             @id @default(cuid())
+  buyerId         String
+  buyer           User               @relation("BuyerQuoteRequests", fields: [buyerId], references: [id])
+  buyerOrgId      String
+  buyerOrg        Organization       @relation("BuyerRequests", fields: [buyerOrgId], references: [id])
+  quantity        Int
+  deliveryArea    String
+  targetDate      DateTime?
+  expiresAt       DateTime?
+  idempotencyKey  String
+  idempotencyHash String
+  status          QuoteRequestStatus @default(REQUESTED)
+  quotes          Quote[]
+  order           Order?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
+  @@unique([buyerOrgId, idempotencyKey])
   @@index([buyerOrgId, status, createdAt])
 }
 
 model Quote {
-  id             String           @id @default(cuid())
-  requestId      String
-  request        QuoteRequest     @relation(fields: [requestId], references: [id])
-  supplierId     String
-  supplier       User             @relation("SupplierQuotes", fields: [supplierId], references: [id])
-  version        Int
-  pricePerPiece  Decimal          @db.Decimal(12, 2)
-  freight        Decimal          @db.Decimal(12, 2)
-  expiresAt      DateTime
-  status         QuoteStatus      @default(DRAFT)
-  order          Order?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  id            String       @id @default(cuid())
+  requestId     String
+  request       QuoteRequest @relation(fields: [requestId], references: [id])
+  supplierId    String
+  supplier      User         @relation("SupplierQuotes", fields: [supplierId], references: [id])
+  version       Int
+  pricePerPiece Decimal      @db.Decimal(12, 2)
+  freight       Decimal      @db.Decimal(12, 2)
+  expiresAt     DateTime
+  status        QuoteStatus  @default(DRAFT)
+  order         Order?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@unique([requestId, version])
   @@index([supplierId, status])
 }
 
 model Order {
-  id              String          @id @default(cuid())
-  requestId       String          @unique
-  request         QuoteRequest    @relation(fields: [requestId], references: [id])
-  quoteId         String          @unique
-  quote           Quote           @relation(fields: [quoteId], references: [id])
-  status          OrderStatus     @default(PAYMENT_PENDING)
-  paymentIntent   PaymentIntent?
-  dispatchEvents  DispatchEvent[]
-  auditEvents     AuditEvent[]
+  id                    String                 @id @default(cuid())
+  requestId             String                 @unique
+  request               QuoteRequest           @relation(fields: [requestId], references: [id])
+  quoteId               String                 @unique
+  quote                 Quote                  @relation(fields: [quoteId], references: [id])
+  status                OrderStatus            @default(PAYMENT_PENDING)
+  paymentIntent         PaymentIntent?
+  dispatchEvents        DispatchEvent[]
+  auditEvents           AuditEvent[]
   sustainabilityMetrics SustainabilityMetric[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 }
 
 model PaymentIntent {
-  id              String   @id @default(cuid())
-  orderId         String   @unique
-  order           Order    @relation(fields: [orderId], references: [id])
-  gateway         String
-  providerRef     String?
-  amount          Decimal  @db.Decimal(12, 2)
-  currency        String   @default("INR")
-  verifiedAt      DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id          String    @id @default(cuid())
+  orderId     String    @unique
+  order       Order     @relation(fields: [orderId], references: [id])
+  gateway     String
+  providerRef String?
+  amount      Decimal   @db.Decimal(12, 2)
+  currency    String    @default("INR")
+  verifiedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model DispatchEvent {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   orderId          String
-  order            Order    @relation(fields: [orderId], references: [id])
+  order            Order     @relation(fields: [orderId], references: [id])
   slot             DateTime
   vehicleReference String
   proofUrl         String?
-  createdAt        DateTime @default(now())
+  deliveredPieces  Int?
+  proofReceivedAt  DateTime?
+  idempotencyKey   String?
+  createdAt        DateTime  @default(now())
 
+  @@unique([orderId, idempotencyKey])
   @@index([orderId, createdAt])
+}
+
+model PaymentWebhookEvent {
+  id              String               @id @default(cuid())
+  gateway         String
+  eventId         String
+  paymentIntentId String?
+  orderId         String?
+  providerRef     String?
+  status          PaymentWebhookStatus @default(RECEIVED)
+  payload         Json
+  receivedAt      DateTime             @default(now())
+  processedAt     DateTime?
+  error           String?
+
+  @@unique([gateway, eventId])
+  @@index([status, receivedAt])
 }
 
 model AuditEvent {
@@ -177,20 +208,20 @@ model AuditEvent {
 }
 
 model SustainabilityMetric {
-  id                String       @id @default(cuid())
-  organizationId    String
-  organization      Organization @relation(fields: [organizationId], references: [id])
-  orderId           String?
-  order             Order?       @relation(fields: [orderId], references: [id])
-  periodStart       DateTime
-  periodEnd         DateTime
-  baselineKg        Decimal      @db.Decimal(14, 3)
-  actualKg          Decimal      @db.Decimal(14, 3)
-  reducedKg         Decimal      @db.Decimal(14, 3)
-  recycledSharePct  Decimal      @db.Decimal(5, 2)
-  methodology       String       @db.VarChar(120)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  orderId          String?
+  order            Order?       @relation(fields: [orderId], references: [id])
+  periodStart      DateTime
+  periodEnd        DateTime
+  baselineKg       Decimal      @db.Decimal(14, 3)
+  actualKg         Decimal      @db.Decimal(14, 3)
+  reducedKg        Decimal      @db.Decimal(14, 3)
+  recycledSharePct Decimal      @db.Decimal(5, 2)
+  methodology      String       @db.VarChar(120)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   @@unique([organizationId, periodStart, periodEnd])
   @@index([organizationId, periodStart, periodEnd])

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { Prisma } from '@prisma/client'
-import { authenticate, requireRoles } from '../middleware/auth.js'
+import { authenticate, requirePermissions } from '../middleware/auth.js'
 import { pricingCalculateSchema } from '../schemas/marketplace.js'
 import { getPricingRules } from '../lib/pricing-rules.js'
 
@@ -8,7 +8,7 @@ const money = (value: Prisma.Decimal) => value.toFixed(2)
 
 export const pricingRouter = Router()
 
-pricingRouter.post('/calculate', authenticate, requireRoles('buyer', 'buyer_finance', 'supplier', 'ops_admin'), async (request, response) => {
+pricingRouter.post('/calculate', authenticate, requirePermissions('pricing:calculate'), async (request, response) => {
   const input = pricingCalculateSchema.parse(request.body)
   const rules = await getPricingRules()
   const quantity = new Prisma.Decimal(input.quantity)

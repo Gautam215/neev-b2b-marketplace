@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { Prisma } from '@prisma/client'
-import { authenticate, requireRoles } from '../middleware/auth.js'
+import { authenticate, requirePermissions } from '../middleware/auth.js'
 import { HttpError } from '../middleware/errors.js'
 import { prisma } from '../lib/prisma.js'
 import { sustainabilityMetricSchema, sustainabilityQuerySchema } from '../schemas/marketplace.js'
@@ -9,7 +9,7 @@ const decimalString = (value: Prisma.Decimal) => value.toFixed(3)
 
 export const sustainabilityRouter = Router()
 
-sustainabilityRouter.get('/metrics', authenticate, requireRoles('buyer', 'buyer_finance', 'supplier', 'supplier_ops', 'ops_admin'), async (request, response) => {
+sustainabilityRouter.get('/metrics', authenticate, requirePermissions('sustainability:read'), async (request, response) => {
   const query = sustainabilityQuerySchema.parse(request.query)
   const to = query.to ?? new Date()
   const from = query.from ?? new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000)
@@ -31,7 +31,7 @@ sustainabilityRouter.get('/metrics', authenticate, requireRoles('buyer', 'buyer_
   })
 })
 
-sustainabilityRouter.post('/metrics', authenticate, requireRoles('supplier_ops', 'ops_admin'), async (request, response) => {
+sustainabilityRouter.post('/metrics', authenticate, requirePermissions('sustainability:write'), async (request, response) => {
   const input = sustainabilityMetricSchema.parse(request.body)
   if (input.orderId) {
     const order = await prisma.order.findUnique({ where: { id: input.orderId }, include: { quote: { include: { supplier: true } } } })

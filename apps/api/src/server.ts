@@ -7,6 +7,7 @@ import { logger } from './lib/logger.js'
 import { attachRealtime } from './lib/realtime.js'
 import { closeMongo, connectMongo } from './lib/mongo.js'
 import { withTimeout } from './lib/timeouts.js'
+import { closeQueues, startQueueWorkers } from './lib/queues.js'
 
 const app = createApp()
 const server = createServer(app)
@@ -18,6 +19,7 @@ async function start() {
   await withTimeout(prisma.$connect(), env.STARTUP_TIMEOUT_MS, 'postgres startup timed out')
   await withTimeout(connectRedis(), env.STARTUP_TIMEOUT_MS, 'redis startup timed out')
   await withTimeout(connectMongo(), env.STARTUP_TIMEOUT_MS, 'mongo startup timed out')
+  startQueueWorkers()
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
     server.listen(env.PORT, () => resolve())
@@ -37,6 +39,7 @@ async function shutdown(signal: string, exitCode = 0) {
     withTimeout(prisma.$disconnect(), env.SHUTDOWN_TIMEOUT_MS, 'postgres shutdown timed out'),
     withTimeout(closeRedis(), env.SHUTDOWN_TIMEOUT_MS, 'redis shutdown timed out'),
     withTimeout(closeMongo(), env.SHUTDOWN_TIMEOUT_MS, 'mongo shutdown timed out'),
+    withTimeout(closeQueues(), env.SHUTDOWN_TIMEOUT_MS, 'background queues shutdown timed out'),
   ])
   process.exit(exitCode)
 }

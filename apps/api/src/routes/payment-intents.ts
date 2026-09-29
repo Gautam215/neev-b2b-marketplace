@@ -1,13 +1,13 @@
 import { Router } from 'express'
 import { Prisma } from '@prisma/client'
-import { authenticate, requireRoles } from '../middleware/auth.js'
+import { authenticate, requirePermissions } from '../middleware/auth.js'
 import { HttpError } from '../middleware/errors.js'
 import { prisma } from '../lib/prisma.js'
 import { paymentIntentSchema } from '../schemas/marketplace.js'
 
 export const paymentIntentRouter = Router()
 
-paymentIntentRouter.post('/', authenticate, requireRoles('buyer_finance', 'ops_admin'), async (request, response) => {
+paymentIntentRouter.post('/', authenticate, requirePermissions('payment_intents:create'), async (request, response) => {
   const input = paymentIntentSchema.parse(request.body)
   const order = await prisma.order.findUnique({
     where: { id: input.orderId },
@@ -18,6 +18,7 @@ paymentIntentRouter.post('/', authenticate, requireRoles('buyer_finance', 'ops_a
     throw new HttpError(403, 'Order is outside your organization')
   }
   if (order.paymentIntent) {
+    if (order.paymentIntent.gateway !== input.gateway) throw new HttpError(409, 'Payment intent already exists for another gateway')
     response.json({ data: { ...order.paymentIntent, amount: order.paymentIntent.amount.toString() }, idempotent: true })
     return
   }

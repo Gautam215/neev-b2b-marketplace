@@ -1,12 +1,12 @@
 import { Router } from 'express'
-import { authenticate, requireRoles } from '../middleware/auth.js'
+import { authenticate, requirePermissions } from '../middleware/auth.js'
 import { prisma } from '../lib/prisma.js'
 import { inventoryUpdateSchema } from '../schemas/marketplace.js'
 import { HttpError } from '../middleware/errors.js'
 
 export const inventoryRouter = Router()
 
-inventoryRouter.patch('/:listingId', authenticate, requireRoles('supplier', 'supplier_ops', 'ops_admin'), async (request, response) => {
+inventoryRouter.patch('/:listingId', authenticate, requirePermissions('inventory:update'), async (request, response) => {
   const input = inventoryUpdateSchema.parse(request.body)
   const listingId = request.params.listingId
   if (!listingId || Array.isArray(listingId)) throw new HttpError(400, 'Listing id is required')
