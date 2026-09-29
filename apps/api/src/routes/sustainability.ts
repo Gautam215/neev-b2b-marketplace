@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import { authenticate, requirePermissions } from '../middleware/auth.js'
 import { HttpError } from '../middleware/errors.js'
 import { prisma } from '../lib/prisma.js'
+import { recordAudit } from '../lib/audit.js'
 import { sustainabilityMetricSchema, sustainabilityQuerySchema } from '../schemas/marketplace.js'
 
 const decimalString = (value: Prisma.Decimal) => value.toFixed(3)
@@ -39,10 +40,26 @@ sustainabilityRouter.post('/metrics', authenticate, requirePermissions('sustaina
     if (!request.auth!.roles.includes('ops_admin') && order.quote.supplier.organizationId !== request.auth!.organizationId) throw new HttpError(403, 'Order is outside your organization')
   }
   const reducedKg = new Prisma.Decimal(input.baselineKg).sub(input.actualKg)
-  const metric = await prisma.sustainabilityMetric.upsert({
-    where: { organizationId_periodStart_periodEnd: { organizationId: request.auth!.organizationId, periodStart: input.periodStart, periodEnd: input.periodEnd } },
-    create: { ...input, organizationId: request.auth!.organizationId, reducedKg },
-    update: { ...input, reducedKg },
+  const metricKey = { organizationId: request.auth!.organizationId, periodStart: input.periodStart, periodEnd: input.periodEnd }
+  const existing = await prisma.sustainabilityMetric.findUnique({ where: { organizationId_periodStart_periodEnd: metricKey } })
+  const metric = await prisma.$transaction(async (transaction) => {
+    const result = await transaction.sustainabilityMetric.upsert({
+      where: { organizationId_periodStart_periodEnd: metricKey },
+      create: { ...input, organizationId: request.auth!.organizationId, reducedKg },
+      update: { ...input, reducedKg },
+    })
+    await recordAudit(transaction, {
+      organizationId: request.auth!.organizationId,
+      actorId: request.auth!.userId,
+      action: existing ? 'sustainability.updated' : 'sustainability.created',
+      entityType: 'SustainabilityMetric',
+      entityId: result.id,
+      requestId: String(request.id),
+      before: existing ? { baselineKg: existing.baselineKg.toString(), actualKg: existing.actualKg.toString(), reducedKg: existing.reducedKg.toString() } : undefined,
+      after: { baselineKg: result.baselineKg.toString(), actualKg: result.actualKg.toString(), reducedKg: result.reducedKg.toString() },
+      payload: JSON.parse(JSON.stringify(input)) as Prisma.InputJsonValue,
+    })
+    return result
   })
   response.status(201).json({ data: { ...metric, baselineKg: decimalString(metric.baselineKg), actualKg: decimalString(metric.actualKg), reducedKg: decimalString(metric.reducedKg), recycledSharePct: metric.recycledSharePct.toFixed(2) } })
 })

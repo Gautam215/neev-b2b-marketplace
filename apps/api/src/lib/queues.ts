@@ -2,7 +2,7 @@ import { Job, Queue, Worker } from 'bullmq'
 import { Redis } from 'ioredis'
 import { env } from '../config/env.js'
 import { logger } from './logger.js'
-import { processPaymentWebhook, processReconciliation } from './payment-webhook-processor.js'
+import { findPendingReconciliationOrderIds, processPaymentWebhook, processReconciliation } from './payment-webhook-processor.js'
 
 export const queueNames = {
   paymentWebhooks: 'neev.payment-webhooks',
@@ -34,6 +34,7 @@ const queueOptions = {
 let paymentWebhookQueue: Queue<PaymentWebhookJob, unknown, string> | undefined
 let reconciliationQueue: Queue<ReconciliationJob, unknown, string> | undefined
 let workers: Worker[] = []
+let reconciliationSweepTimer: NodeJS.Timeout | undefined
 
 function createConnection() {
   return new Redis(env.REDIS_URL, { maxRetriesPerRequest: null })
@@ -49,7 +50,12 @@ function getReconciliationQueue() {
 
 async function addOnce<T>(queue: Queue<T, unknown, string>, name: string, data: T, jobId: string) {
   const existing = await queue.getJob(jobId)
-  return existing ?? queue.add(name as never, data as never, { jobId })
+  if (existing) {
+    const state = await existing.getState()
+    if (state !== 'failed') return existing
+    await existing.remove()
+  }
+  return queue.add(name as never, data as never, { jobId })
 }
 
 export function paymentWebhookJobId(data: Pick<PaymentWebhookJob, 'gateway' | 'eventId'>) {
@@ -78,10 +84,29 @@ export function startQueueWorkers() {
     worker.on('error', (error) => logger.error({ err: error }, 'background worker error'))
   }
   workers = [paymentWorker, reconciliationWorker]
+  startReconciliationSweep()
   logger.info({ queues: Object.values(queueNames) }, 'background queue workers started')
 }
 
+async function enqueuePendingReconciliations() {
+  const orderIds = await findPendingReconciliationOrderIds()
+  await Promise.all(orderIds.map((orderId) => enqueueReconciliation(orderId)))
+  if (orderIds.length > 0) logger.info({ count: orderIds.length }, 'pending reconciliations enqueued')
+}
+
+function startReconciliationSweep() {
+  if (reconciliationSweepTimer) return
+  const run = () => {
+    void enqueuePendingReconciliations().catch((error) => logger.error({ err: error }, 'reconciliation sweep failed'))
+  }
+  run()
+  reconciliationSweepTimer = setInterval(run, env.RECONCILIATION_SWEEP_INTERVAL_SECONDS * 1000)
+  reconciliationSweepTimer.unref()
+}
+
 export async function closeQueues() {
+  if (reconciliationSweepTimer) clearInterval(reconciliationSweepTimer)
+  reconciliationSweepTimer = undefined
   const closing = [
     ...workers.map((worker) => worker.close()),
     ...(paymentWebhookQueue ? [paymentWebhookQueue.close()] : []),

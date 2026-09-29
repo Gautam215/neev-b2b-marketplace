@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { publish } from './realtime.js'
+import { recordAudit } from './audit.js'
 import { assertTransition, orderTransitions } from './state-machine.js'
 import type { PaymentWebhookJob } from './queues.js'
 
@@ -35,10 +36,20 @@ export async function processPaymentWebhook(data: PaymentWebhookJob) {
   }
 
   if (data.eventType === 'payment.failed') {
-    await prisma.$transaction([
-      prisma.paymentWebhookEvent.update({ where: { id: ledger.id }, data: { status: 'IGNORED', processedAt: new Date() } }),
-      prisma.auditEvent.create({ data: { orderId: intent.orderId, actorId: 'system:webhook', action: 'payment.failed', requestId: `webhook:${data.eventId}`, payload: asPayload(data) } }),
-    ])
+    await prisma.$transaction(async (transaction) => {
+      await transaction.paymentWebhookEvent.update({ where: { id: ledger.id }, data: { status: 'IGNORED', processedAt: new Date() } })
+      await recordAudit(transaction, {
+        organizationId: intent.order.request.buyerOrgId,
+        orderId: intent.orderId,
+        actorId: 'system:webhook',
+        actorType: 'system',
+        action: 'payment.failed',
+        entityType: 'PaymentIntent',
+        entityId: intent.id,
+        requestId: `webhook:${data.eventId}`,
+        payload: asPayload(data),
+      })
+    })
     return { status: 'ignored', duplicate: false }
   }
 
@@ -59,7 +70,18 @@ export async function processPaymentWebhook(data: PaymentWebhookJob) {
     const updated = await transaction.order.updateMany({ where: { id: intent.orderId, status: 'PAYMENT_PENDING' }, data: { status: 'PAYMENT_VERIFIED' } })
     if (updated.count !== 1) throw new Error('Order changed while payment was being verified')
     await transaction.paymentWebhookEvent.update({ where: { id: ledger.id }, data: { status: 'PROCESSED', processedAt: new Date() } })
-    await transaction.auditEvent.create({ data: { orderId: intent.orderId, actorId: 'system:webhook', action: 'payment.verified', requestId: `webhook:${data.eventId}`, payload: asPayload(data) } })
+    await recordAudit(transaction, {
+      organizationId: intent.order.request.buyerOrgId,
+      orderId: intent.orderId,
+      actorId: 'system:webhook',
+      actorType: 'system',
+      action: 'payment.verified',
+      entityType: 'PaymentIntent',
+      entityId: intent.id,
+      requestId: `webhook:${data.eventId}`,
+      after: { orderStatus: 'PAYMENT_VERIFIED', providerRef: data.providerRef },
+      payload: asPayload(data),
+    })
   })
 
   publish(intent.order.request.buyerOrgId, 'payment.verified', { orderId: intent.orderId, providerRef: data.providerRef })
@@ -83,18 +105,32 @@ export async function processReconciliation(orderId: string) {
   await prisma.$transaction(async (transaction) => {
     const updated = await transaction.order.updateMany({ where: { id: order.id, status: 'PROOF_RECEIVED' }, data: { status: nextStatus } })
     if (updated.count !== 1) throw new Error('Order changed while reconciliation was running')
-    await transaction.auditEvent.create({
-      data: {
-        orderId: order.id,
-        actorId: 'system:reconciliation',
-        action: nextStatus === 'RECONCILED' ? 'order.reconciled' : 'order.disputed',
-        requestId: `reconciliation:${order.id}`,
-        payload: { deliveredPieces: proof.deliveredPieces, requestedPieces: order.request.quantity, proofUrl: proof.proofUrl },
-      },
+    await recordAudit(transaction, {
+      organizationId: order.request.buyerOrgId,
+      orderId: order.id,
+      actorId: 'system:reconciliation',
+      actorType: 'system',
+      action: nextStatus === 'RECONCILED' ? 'order.reconciled' : 'order.disputed',
+      entityType: 'Order',
+      entityId: order.id,
+      requestId: `reconciliation:${order.id}`,
+      before: { status: 'PROOF_RECEIVED' },
+      after: { status: nextStatus },
+      payload: { deliveredPieces: proof.deliveredPieces, requestedPieces: order.request.quantity, proofUrl: proof.proofUrl },
     })
   })
 
   publish(order.request.buyerOrgId, `order.${nextStatus.toLowerCase()}`, { orderId: order.id })
   publish(order.quote.supplier.organizationId, `order.${nextStatus.toLowerCase()}`, { orderId: order.id })
   return { status: nextStatus.toLowerCase() as 'reconciled' | 'disputed', duplicate: false }
+}
+
+export async function findPendingReconciliationOrderIds() {
+  const orders = await prisma.order.findMany({
+    where: { status: 'PROOF_RECEIVED' },
+    select: { id: true },
+    orderBy: { updatedAt: 'asc' },
+    take: 100,
+  })
+  return orders.map((order) => order.id)
 }

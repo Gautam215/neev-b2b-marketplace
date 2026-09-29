@@ -2,10 +2,11 @@ import { Router } from 'express'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
 import { searchQuerySchema } from '../schemas/marketplace.js'
+import { authenticate, requirePermissions } from '../middleware/auth.js'
 
 export const searchRouter = Router()
 
-searchRouter.get('/', async (request, response) => {
+searchRouter.get('/', authenticate, requirePermissions('catalog:read'), async (request, response) => {
   const query = searchQuerySchema.parse(request.query)
   const where: Prisma.InventoryListingWhereInput = {
     ...(query.q ? { OR: [{ sku: { contains: query.q, mode: 'insensitive' } }, { grade: { contains: query.q, mode: 'insensitive' } }] } : {}),

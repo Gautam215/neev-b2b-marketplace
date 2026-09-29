@@ -19,7 +19,7 @@ async function start() {
   await withTimeout(prisma.$connect(), env.STARTUP_TIMEOUT_MS, 'postgres startup timed out')
   await withTimeout(connectRedis(), env.STARTUP_TIMEOUT_MS, 'redis startup timed out')
   await withTimeout(connectMongo(), env.STARTUP_TIMEOUT_MS, 'mongo startup timed out')
-  startQueueWorkers()
+  if (env.RUN_WORKERS) await startQueueWorkers()
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
     server.listen(env.PORT, () => resolve())
@@ -36,10 +36,13 @@ async function shutdown(signal: string, exitCode = 0) {
     : Promise.resolve()
   await Promise.allSettled([
     withTimeout(closeServer, env.SHUTDOWN_TIMEOUT_MS, 'http server shutdown timed out'),
+    // Stop workers before closing their database and Redis dependencies.
+    withTimeout(closeQueues(), env.SHUTDOWN_TIMEOUT_MS, 'background queues shutdown timed out'),
+  ])
+  await Promise.allSettled([
     withTimeout(prisma.$disconnect(), env.SHUTDOWN_TIMEOUT_MS, 'postgres shutdown timed out'),
     withTimeout(closeRedis(), env.SHUTDOWN_TIMEOUT_MS, 'redis shutdown timed out'),
     withTimeout(closeMongo(), env.SHUTDOWN_TIMEOUT_MS, 'mongo shutdown timed out'),
-    withTimeout(closeQueues(), env.SHUTDOWN_TIMEOUT_MS, 'background queues shutdown timed out'),
   ])
   process.exit(exitCode)
 }

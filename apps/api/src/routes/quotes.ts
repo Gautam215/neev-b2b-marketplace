@@ -3,12 +3,14 @@ import { authenticate, requirePermissions } from '../middleware/auth.js'
 import { HttpError } from '../middleware/errors.js'
 import { prisma } from '../lib/prisma.js'
 import { publish } from '../lib/realtime.js'
+import { recordAudit } from '../lib/audit.js'
 import { quoteAcceptSchema } from '../schemas/marketplace.js'
 import { assertTransition, quoteRequestTransitions, quoteTransitions } from '../lib/state-machine.js'
+import { requireIdempotency } from '../middleware/idempotency.js'
 
 export const quoteRouter = Router()
 
-quoteRouter.post('/:quoteId/accept', authenticate, requirePermissions('quotes:accept:buyer', 'quotes:accept:supplier'), async (request, response) => {
+quoteRouter.post('/:quoteId/accept', authenticate, requirePermissions('quotes:accept:buyer', 'quotes:accept:supplier'), requireIdempotency, async (request, response) => {
   const quoteId = request.params.quoteId
   if (!quoteId || Array.isArray(quoteId)) throw new HttpError(400, 'Quote id is required')
   const input = quoteAcceptSchema.parse(request.body)
@@ -40,16 +42,19 @@ quoteRouter.post('/:quoteId/accept', authenticate, requirePermissions('quotes:ac
       data: { status: 'ACCEPTED' },
     })
     if (accepted.count !== 1) throw new HttpError(409, 'Quote changed while you were accepting it')
-    await transaction.quoteRequest.update({ where: { id: quote.requestId }, data: { status: 'ACCEPTED' } })
+    const acceptedRequest = await transaction.quoteRequest.updateMany({ where: { id: quote.requestId, status: quote.request.status }, data: { status: 'ACCEPTED' } })
+    if (acceptedRequest.count !== 1) throw new HttpError(409, 'Quote request changed while you were accepting the quote')
     const order = await transaction.order.create({ data: { requestId: quote.requestId, quoteId: quote.id } })
-    await transaction.auditEvent.create({
-      data: {
-        orderId: order.id,
-        actorId: request.auth!.userId,
-        action: 'quote.accepted',
-        requestId: String(request.id),
-        payload: { quoteId: quote.id, quoteVersion: quote.version },
-      },
+    await recordAudit(transaction, {
+      organizationId: quote.request.buyerOrgId,
+      orderId: order.id,
+      actorId: request.auth!.userId,
+      action: 'quote.accepted',
+      entityType: 'Order',
+      entityId: order.id,
+      requestId: String(request.id),
+      after: { quoteStatus: 'ACCEPTED', quoteRequestStatus: 'ACCEPTED', orderStatus: order.status },
+      payload: { quoteId: quote.id, quoteVersion: quote.version },
     })
     return order
   })

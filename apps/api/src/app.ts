@@ -19,10 +19,14 @@ import { paymentIntentRouter } from './routes/payment-intents.js'
 import { pricingRouter } from './routes/pricing.js'
 import { sustainabilityRouter } from './routes/sustainability.js'
 import { openapiDocument } from './docs/openapi.js'
+import { authRouter } from './routes/auth.js'
+import { authenticate } from './middleware/auth.js'
+import { writeRateLimiter } from './middleware/security.js'
 
 export function createApp() {
   const app = express()
   app.disable('x-powered-by')
+  app.set('trust proxy', env.TRUST_PROXY)
   app.use(requestId)
   app.use(pinoHttp({ logger }))
   app.use(securityMiddleware)
@@ -36,6 +40,16 @@ export function createApp() {
   app.use('/api/v1/payments', paymentRouter)
   app.use(express.json({ limit: env.MAX_JSON_BODY_BYTES, strict: true }))
   app.use(express.urlencoded({ extended: false, limit: env.MAX_URLENCODED_BODY_BYTES }))
+  app.use('/api/v1/auth', authRouter)
+  app.use([
+    '/api/v1/quote-requests',
+    '/api/v1/quotes',
+    '/api/v1/payment-intents',
+    '/api/v1/pricing',
+    '/api/v1/sustainability',
+    '/api/v1/inventory',
+    '/api/v1/dispatches',
+  ], writeRateLimiter)
   app.use('/api/v1/search', searchRouter)
   app.use('/api/v1/quote-requests', quoteRequestRouter)
   app.use('/api/v1/quotes', quoteRouter)
@@ -45,7 +59,7 @@ export function createApp() {
   app.use('/api/v1/inventory', inventoryRouter)
   app.use('/api/v1/dispatches', dispatchRouter)
   app.use('/api/v1/orders', timelineRouter)
-  app.get('/api/v1/meta', (_request, response) => response.json({ service: 'neev-api', version: 'v1', environment: env.NODE_ENV }))
+  app.get('/api/v1/meta', authenticate, (_request, response) => response.json({ service: 'neev-api', version: 'v1', environment: env.NODE_ENV }))
   app.use(notFound)
   app.use(errorHandler)
   return app

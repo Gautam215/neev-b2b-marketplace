@@ -3,11 +3,13 @@ import { Prisma } from '@prisma/client'
 import { authenticate, requirePermissions } from '../middleware/auth.js'
 import { HttpError } from '../middleware/errors.js'
 import { prisma } from '../lib/prisma.js'
+import { recordAudit } from '../lib/audit.js'
 import { paymentIntentSchema } from '../schemas/marketplace.js'
+import { requireIdempotency } from '../middleware/idempotency.js'
 
 export const paymentIntentRouter = Router()
 
-paymentIntentRouter.post('/', authenticate, requirePermissions('payment_intents:create'), async (request, response) => {
+paymentIntentRouter.post('/', authenticate, requirePermissions('payment_intents:create'), requireIdempotency, async (request, response) => {
   const input = paymentIntentSchema.parse(request.body)
   const order = await prisma.order.findUnique({
     where: { id: input.orderId },
@@ -29,14 +31,16 @@ paymentIntentRouter.post('/', authenticate, requirePermissions('payment_intents:
     const created = await transaction.paymentIntent.create({
       data: { orderId: order.id, gateway: input.gateway, amount, currency: 'INR' },
     })
-    await transaction.auditEvent.create({
-      data: {
-        orderId: order.id,
-        actorId: request.auth!.userId,
-        action: 'payment_intent.created',
-        requestId: String(request.id),
-        payload: { gateway: input.gateway, amount: amount.toString(), currency: 'INR' },
-      },
+    await recordAudit(transaction, {
+      organizationId: order.request.buyerOrgId,
+      orderId: order.id,
+      actorId: request.auth!.userId,
+      action: 'payment_intent.created',
+      entityType: 'PaymentIntent',
+      entityId: created.id,
+      requestId: String(request.id),
+      after: { gateway: input.gateway, amount: amount.toString(), currency: 'INR' },
+      payload: { gateway: input.gateway, amount: amount.toString(), currency: 'INR' },
     })
     return created
   })

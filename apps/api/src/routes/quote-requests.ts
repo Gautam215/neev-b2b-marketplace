@@ -1,19 +1,19 @@
 import { Router } from 'express'
-import { createHash } from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import { authenticate, requirePermissions } from '../middleware/auth.js'
 import { prisma } from '../lib/prisma.js'
+import { recordAudit } from '../lib/audit.js'
 import { quoteRequestSchema } from '../schemas/marketplace.js'
 import { HttpError } from '../middleware/errors.js'
+import { hashIdempotencyValue, requireIdempotency } from '../middleware/idempotency.js'
 
 export const quoteRequestRouter = Router()
 
-quoteRequestRouter.post('/', authenticate, requirePermissions('quote_requests:create'), async (request, response) => {
+quoteRequestRouter.post('/', authenticate, requirePermissions('quote_requests:create'), requireIdempotency, async (request, response) => {
   const idempotencyKey = request.header('idempotency-key')?.trim()
   if (!idempotencyKey) throw new HttpError(400, 'Idempotency-Key header is required')
-  if (idempotencyKey.length > 128) throw new HttpError(400, 'Idempotency-Key must be 128 characters or fewer')
   const input = quoteRequestSchema.parse(request.body)
-  const idempotencyHash = createHash('sha256').update(JSON.stringify(input)).digest('hex')
+  const idempotencyHash = hashIdempotencyValue(input)
   const identity = { buyerOrgId: request.auth!.organizationId, idempotencyKey }
   const existing = await prisma.quoteRequest.findUnique({ where: { buyerOrgId_idempotencyKey: identity } })
   if (existing) {
@@ -24,14 +24,27 @@ quoteRequestRouter.post('/', authenticate, requirePermissions('quote_requests:cr
 
   let quoteRequest: Awaited<ReturnType<typeof prisma.quoteRequest.create>>
   try {
-    quoteRequest = await prisma.quoteRequest.create({
-      data: {
-        ...input,
-        idempotencyKey,
-        idempotencyHash,
-        buyerId: request.auth!.userId,
-        buyerOrgId: request.auth!.organizationId,
-      },
+    quoteRequest = await prisma.$transaction(async (transaction) => {
+      const created = await transaction.quoteRequest.create({
+        data: {
+          ...input,
+          idempotencyKey,
+          idempotencyHash,
+          buyerId: request.auth!.userId,
+          buyerOrgId: request.auth!.organizationId,
+        },
+      })
+      await recordAudit(transaction, {
+        organizationId: request.auth!.organizationId,
+        actorId: request.auth!.userId,
+        action: 'quote_request.created',
+        entityType: 'QuoteRequest',
+        entityId: created.id,
+        requestId: String(request.id),
+        after: { status: created.status, quantity: created.quantity, deliveryArea: created.deliveryArea },
+        payload: { idempotencyKey },
+      })
+      return created
     })
   } catch (error) {
     if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error

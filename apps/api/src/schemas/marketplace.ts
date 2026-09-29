@@ -26,8 +26,7 @@ export const dispatchSchema = z.object({
   orderId: z.string().min(1),
   slot: z.coerce.date(),
   vehicleReference: z.string().trim().min(2).max(80),
-  proofUrl: z.string().url().optional(),
-})
+}).strict()
 
 export const dispatchProofSchema = z.object({
   deliveredPieces: z.number().int().positive(),

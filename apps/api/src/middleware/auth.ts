@@ -17,6 +17,8 @@ export type AccessTokenClaims = {
   organizationId: string
   roles: Role[]
   tokenType: 'access'
+  jti: string
+  sessionId?: string
   iat: number
   exp: number
 }
@@ -35,6 +37,8 @@ const accessTokenClaimsSchema = z.object({
     if (new Set(roles).size !== roles.length) context.addIssue({ code: 'custom', message: 'roles must be unique' })
   }),
   tokenType: z.literal('access'),
+  jti: z.string().trim().min(1),
+  sessionId: z.string().trim().min(1).optional(),
   iat: z.number().int().positive(),
   exp: z.number().int().positive(),
 }).passthrough()
@@ -50,15 +54,15 @@ export function userMatchesAccessToken(claims: AccessTokenClaims, user: AuthUser
     && roleSetsMatch(claims.roles, user.roles)
 }
 
-export function signAccessToken(input: { userId: string; organizationId: string; roles: Role[]; expiresIn?: SignOptions['expiresIn'] }) {
+export function signAccessToken(input: { userId: string; organizationId: string; roles: Role[]; sessionId?: string; expiresIn?: SignOptions['expiresIn'] }) {
   return jwt.sign(
-    { sub: input.userId, organizationId: input.organizationId, roles: input.roles, tokenType: 'access' },
+    { sub: input.userId, organizationId: input.organizationId, roles: input.roles, tokenType: 'access', ...(input.sessionId ? { sessionId: input.sessionId } : {}) },
     env.JWT_SECRET,
     {
       algorithm: 'HS256',
       issuer: env.JWT_ISSUER,
       audience: env.JWT_AUDIENCE,
-      expiresIn: input.expiresIn ?? '15m',
+      expiresIn: input.expiresIn ?? env.ACCESS_TOKEN_TTL_SECONDS,
       jwtid: randomUUID(),
     },
   )
@@ -88,12 +92,20 @@ async function readAuth(request: Request) {
   const claims = verifyAccessToken(token)
 
   if (env.AUTH_REQUIRE_USER_LOOKUP) {
-    const user = await prisma.user.findUnique({
-      where: { id: claims.sub },
-      select: { id: true, organizationId: true, roles: true, isActive: true },
-    })
+    const [user, session] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: claims.sub },
+        select: { id: true, organizationId: true, roles: true, isActive: true },
+      }),
+      claims.sessionId
+        ? prisma.refreshSession.findUnique({ where: { id: claims.sessionId }, select: { userId: true, expiresAt: true, revokedAt: true } })
+        : Promise.resolve(null),
+    ])
     if (!user || !userMatchesAccessToken(claims, user)) {
       throw new HttpError(401, 'Access token is no longer valid')
+    }
+    if (claims.sessionId && (!session || session.userId !== claims.sub || session.revokedAt || session.expiresAt <= new Date())) {
+      throw new HttpError(401, 'Access token session is no longer valid')
     }
   }
 

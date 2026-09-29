@@ -1,6 +1,7 @@
 import type { Role } from '@prisma/client'
 
 export const permissionValues = [
+  'catalog:read',
   'quote_requests:create',
   'quotes:accept:buyer',
   'quotes:accept:supplier',
@@ -10,6 +11,7 @@ export const permissionValues = [
   'sustainability:write',
   'inventory:update',
   'dispatch:schedule',
+  'dispatch:transit',
   'dispatch:proof',
   'timeline:read',
 ] as const
@@ -17,10 +19,10 @@ export const permissionValues = [
 export type Permission = typeof permissionValues[number]
 
 export const rolePermissions: Record<Role, readonly Permission[]> = {
-  buyer: ['quote_requests:create', 'quotes:accept:buyer', 'pricing:calculate', 'sustainability:read', 'timeline:read'],
-  buyer_finance: ['quote_requests:create', 'quotes:accept:buyer', 'payment_intents:create', 'pricing:calculate', 'sustainability:read', 'timeline:read'],
-  supplier: ['quotes:accept:supplier', 'pricing:calculate', 'inventory:update', 'sustainability:read', 'timeline:read'],
-  supplier_ops: ['pricing:calculate', 'sustainability:read', 'sustainability:write', 'inventory:update', 'dispatch:schedule', 'dispatch:proof', 'timeline:read'],
+  buyer: ['catalog:read', 'quote_requests:create', 'quotes:accept:buyer', 'pricing:calculate', 'sustainability:read', 'timeline:read'],
+  buyer_finance: ['catalog:read', 'quote_requests:create', 'quotes:accept:buyer', 'payment_intents:create', 'pricing:calculate', 'sustainability:read', 'timeline:read'],
+  supplier: ['catalog:read', 'quotes:accept:supplier', 'pricing:calculate', 'inventory:update', 'sustainability:read', 'timeline:read'],
+  supplier_ops: ['catalog:read', 'pricing:calculate', 'sustainability:read', 'sustainability:write', 'inventory:update', 'dispatch:schedule', 'dispatch:transit', 'dispatch:proof', 'timeline:read'],
   ops_admin: permissionValues,
 }
 
