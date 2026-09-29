@@ -7,11 +7,54 @@ export const openapiDocument = {
   },
   servers: [{ url: '/api/v1' }],
   tags: [
+    { name: 'Auth', description: 'Password login and rotating refresh sessions' },
     { name: 'Pricing', description: 'Volume pricing and dynamic fee calculation' },
     { name: 'Sustainability', description: 'Organization-scoped carbon reduction metrics' },
     { name: 'Health', description: 'Service and dependency health' },
   ],
   paths: {
+    '/auth/login': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Create an access token and refresh session',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/LoginRequest' } } },
+        },
+        responses: {
+          '200': { description: 'Access token issued; refresh token set in an HttpOnly cookie.', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } } },
+          '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/auth/refresh': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Rotate the refresh session and issue a new access token',
+        security: [{ refreshCookie: [] }],
+        responses: {
+          '200': { description: 'Access token issued and refresh cookie rotated.', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthResponse' } } } },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/auth/logout': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Revoke the refresh-token family',
+        security: [{ refreshCookie: [] }],
+        responses: { '204': { description: 'Refresh session revoked.' } },
+      },
+    },
+    '/auth/me': {
+      get: {
+        tags: ['Auth'],
+        summary: 'Read the authenticated user',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Authenticated user.' }, '401': { $ref: '#/components/responses/Unauthorized' } },
+      },
+    },
     '/pricing/calculate': {
       post: {
         tags: ['Pricing'],
@@ -61,8 +104,41 @@ export const openapiDocument = {
   components: {
     securitySchemes: {
       bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      refreshCookie: { type: 'apiKey', in: 'cookie', name: 'neev_refresh' },
     },
     schemas: {
+      LoginRequest: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email', maxLength: 320 },
+          password: { type: 'string', minLength: 12, maxLength: 128 },
+        },
+      },
+      AuthResponse: {
+        type: 'object',
+        properties: {
+          data: {
+            type: 'object',
+            properties: {
+              accessToken: { type: 'string' },
+              tokenType: { type: 'string', enum: ['Bearer'] },
+              expiresIn: { type: 'integer' },
+              user: { $ref: '#/components/schemas/User' },
+            },
+          },
+        },
+      },
+      User: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          email: { type: 'string', format: 'email' },
+          name: { type: 'string' },
+          roles: { type: 'array', items: { type: 'string' } },
+          organizationId: { type: 'string' },
+        },
+      },
       PricingCalculateRequest: {
         type: 'object',
         required: ['quantity', 'unitPrice'],

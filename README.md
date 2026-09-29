@@ -240,6 +240,7 @@ flowchart TB
   API[/api/v1]
   API --> Health[/health]
   API --> Docs[/docs]
+  API --> Auth[/auth]
   API --> Search[/search]
   API --> Quotes[/quote-requests and /quotes]
   API --> Payment[/payment-intents and /payments]
@@ -251,7 +252,8 @@ flowchart TB
 | Area | Main behavior |
 | --- | --- |
 | `/health` | Liveness and dependency readiness |
-| `/search` | Public inventory search with safe filters |
+| `/auth` | Password login, rotating refresh cookie, logout, and current-user lookup |
+| `/search` | Authenticated catalog search with safe filters |
 | `/quote-requests` | Organization-scoped quote creation and idempotency |
 | `/quotes` | Supplier responses and buyer acceptance |
 | `/payment-intents` | Payment intent creation for authorized finance users |
@@ -288,7 +290,7 @@ flowchart LR
 | `workspace.html` | Buyer, supplier, and operations demo |
 | `apps/web/` | Next.js workspace and shared components |
 | `apps/api/src/routes/` | Express route adapters |
-| `apps/api/src/lib/` | Auth, RBAC, state, queues, data access, and realtime |
+| `apps/api/src/lib/` | Auth, RBAC, state, queues, audit, data access, and realtime |
 | `apps/api/prisma/` | PostgreSQL schema and committed migrations |
 | `apps/api/test/` | API, authorization, state, queue, and encryption tests |
 | `docs/diagrams/` | Detailed SVG architecture and workflow diagrams |
@@ -347,6 +349,12 @@ cd apps/api
 npm run seed:mongoose
 ```
 
+Run background workers separately when `RUN_WORKERS=false`:
+
+```bash
+npm run dev:worker
+```
+
 Never commit `.env`, provider secrets, passwords, payment credentials, private keys, or real customer data.
 
 ## Configuration
@@ -366,7 +374,12 @@ flowchart LR
 | `REDIS_URL` | Redis connection used by BullMQ and readiness |
 | `JWT_SECRET` | At least 32 characters; use a random secret |
 | `JWT_ISSUER`, `JWT_AUDIENCE` | Must match the identity issuer and client |
-| `AUTH_REQUIRE_USER_LOOKUP` | Keep `true` outside isolated tests |
+| `ACCESS_TOKEN_TTL_SECONDS`, `REFRESH_TOKEN_TTL_SECONDS` | Short-lived access token and rotating refresh-session lifetimes |
+| `AUTH_REQUIRE_USER_LOOKUP` | Keep `true` outside isolated tests; production rejects `false` |
+| `AUTH_COOKIE_SECURE` | Must be `true` in production; refresh tokens are HttpOnly cookies |
+| `RATE_LIMIT_STORE` | Use `redis` in production for shared limits |
+| `RUN_WORKERS`, `RECONCILIATION_SWEEP_INTERVAL_SECONDS` | Choose embedded or separate workers and sweep interval |
+| `IDEMPOTENCY_TTL_SECONDS` | Retention for durable request fingerprints and response replay |
 | `PAYMENT_WEBHOOK_SECRET` | Provider HMAC secret |
 | `MONGODB_URL` and `MONGODB_ENCRYPTION_KEY` | Both required to enable optional MongoDB |
 | `DATABASE_SSL_MODE` | `require` is enforced in production |

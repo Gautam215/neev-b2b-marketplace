@@ -48,6 +48,11 @@ enum PaymentWebhookStatus {
   FAILED
 }
 
+enum IdempotencyStatus {
+  PENDING
+  COMPLETED
+}
+
 model Organization {
   id                    String                 @id @default(cuid())
   name                  String
@@ -55,22 +60,49 @@ model Organization {
   listings              InventoryListing[]
   buyerRequests         QuoteRequest[]         @relation("BuyerRequests")
   sustainabilityMetrics SustainabilityMetric[]
+  auditEvents           AuditEvent[]
+  idempotencyRecords    IdempotencyRecord[]
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
 }
 
 model User {
-  id             String         @id @default(cuid())
-  email          String         @unique
-  name           String
-  roles          Role[]
-  isActive       Boolean        @default(true)
-  organizationId String
-  organization   Organization   @relation(fields: [organizationId], references: [id])
-  quoteRequests  QuoteRequest[] @relation("BuyerQuoteRequests")
-  supplierQuotes Quote[]        @relation("SupplierQuotes")
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  name               String
+  passwordHash       String?
+  failedLoginCount   Int                 @default(0)
+  lockedUntil        DateTime?
+  roles              Role[]
+  isActive           Boolean             @default(true)
+  organizationId     String
+  organization       Organization        @relation(fields: [organizationId], references: [id])
+  quoteRequests      QuoteRequest[]      @relation("BuyerQuoteRequests")
+  supplierQuotes     Quote[]             @relation("SupplierQuotes")
+  refreshSessions    RefreshSession[]
+  idempotencyRecords IdempotencyRecord[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model RefreshSession {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId     String
+  tokenHash    String    @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  usedAt       DateTime?
+  revokedAt    DateTime?
+  replacedById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId, familyId])
+  @@index([familyId, revokedAt])
+  @@index([expiresAt])
 }
 
 model InventoryListing {
@@ -170,6 +202,7 @@ model DispatchEvent {
   deliveredPieces  Int?
   proofReceivedAt  DateTime?
   idempotencyKey   String?
+  idempotencyHash  String?
   createdAt        DateTime  @default(now())
 
   @@unique([orderId, idempotencyKey])
@@ -194,17 +227,48 @@ model PaymentWebhookEvent {
 }
 
 model AuditEvent {
-  id         String   @id @default(cuid())
-  orderId    String?
-  order      Order?   @relation(fields: [orderId], references: [id])
-  actorId    String
-  action     String
-  requestId  String
-  payload    Json
-  occurredAt DateTime @default(now())
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  orderId        String?
+  order          Order?        @relation(fields: [orderId], references: [id])
+  actorId        String
+  actorType      String        @default("user")
+  action         String
+  entityType     String        @default("unknown")
+  entityId       String?
+  requestId      String
+  before         Json?
+  after          Json?
+  payload        Json
+  occurredAt     DateTime      @default(now())
 
+  @@index([organizationId, occurredAt])
   @@index([orderId, occurredAt])
+  @@index([entityType, entityId, occurredAt])
   @@index([requestId])
+}
+
+model IdempotencyRecord {
+  id             String            @id @default(cuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  method         String
+  route          String
+  key            String
+  requestHash    String
+  status         IdempotencyStatus @default(PENDING)
+  responseStatus Int?
+  responseBody   Json?
+  expiresAt      DateTime
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([organizationId, userId, method, route, key])
+  @@index([expiresAt])
+  @@index([organizationId, createdAt])
 }
 
 model SustainabilityMetric {
