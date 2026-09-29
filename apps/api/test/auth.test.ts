@@ -17,12 +17,13 @@ const signed = (payload: Record<string, unknown>, options: jwt.SignOptions = {})
   issuer: process.env.JWT_ISSUER,
   audience: process.env.JWT_AUDIENCE,
   expiresIn: '15m',
+  jwtid: 'test-jti',
   ...options,
 })
 
 describe('JWT access tokens', () => {
   it('accepts a complete short-lived access token', () => {
-    expect(verifyAccessToken(validToken())).toMatchObject({ sub: 'user-1', organizationId: 'org-1', roles: ['buyer'], tokenType: 'access' })
+    expect(verifyAccessToken(validToken())).toMatchObject({ sub: 'user-1', organizationId: 'org-1', roles: ['buyer'], tokenType: 'access', jti: expect.any(String) })
   })
 
   it('rejects a blank token', () => {

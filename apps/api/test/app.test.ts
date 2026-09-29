@@ -20,7 +20,7 @@ vi.mock('../src/lib/queues.js', () => ({
 const tokenFor = (roles: string[], organizationId = 'org_demo') => jwt.sign(
   { sub: 'user_demo', organizationId, roles, tokenType: 'access' },
   process.env.JWT_SECRET!,
-  { algorithm: 'HS256', issuer: process.env.JWT_ISSUER, audience: process.env.JWT_AUDIENCE, expiresIn: '15m' },
+  { algorithm: 'HS256', issuer: process.env.JWT_ISSUER, audience: process.env.JWT_AUDIENCE, expiresIn: '15m', jwtid: 'test-jti' },
 )
 const buyerToken = () => tokenFor(['buyer'])
 const supplierOpsToken = () => tokenFor(['supplier_ops'])
@@ -47,6 +47,13 @@ describe('API contract', () => {
     const paymentResponse = await request(app).post('/api/v1/payment-intents').send({ orderId: 'order_demo', gateway: 'stripe' })
     expect(quoteResponse.status).toBe(401)
     expect(paymentResponse.status).toBe(401)
+  })
+
+  it('rejects malformed refresh cookies without exposing a server error', async () => {
+    const { createApp } = await import('../src/app.js')
+    const response = await request(createApp()).post('/api/v1/auth/refresh').set('Cookie', 'neev_refresh=%')
+    expect(response.status).toBe(401)
+    expect(response.headers['cache-control']).toBe('no-store')
   })
 
   it('accepts only a valid HMAC payment webhook signature', async () => {
@@ -101,6 +108,7 @@ describe('API contract', () => {
       .set('Authorization', `Bearer ${buyerToken()}`)
       .send({ quantity: 1000, unitPrice: 7, oversized: 'x'.repeat(70 * 1024) })
     expect(docs.status).toBe(200)
+    expect(docs.body.paths['/auth/login']).toBeTruthy()
     expect(docs.body.paths['/pricing/calculate']).toBeTruthy()
     expect(oversized.status).toBe(413)
   })

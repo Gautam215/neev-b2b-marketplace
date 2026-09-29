@@ -92,4 +92,30 @@ describe('order state transitions', () => {
       expect(error).toMatchObject({ status: 409, details: { from: 'RECONCILED', to: 'PAYMENT_PENDING' } })
     }
   })
+
+  it('does not allow self-transitions for any order state', () => {
+    for (const state of Object.keys(orderTransitions)) {
+      expect(canTransition(orderTransitions, state as never, state as never)).toBe(false)
+    }
+  })
+
+  it.each([
+    ['PAYMENT_PENDING', ['PAYMENT_VERIFIED', 'DISPUTED']],
+    ['PAYMENT_VERIFIED', ['DISPATCH_SCHEDULED', 'DISPUTED']],
+    ['DISPATCH_SCHEDULED', ['IN_TRANSIT', 'PROOF_RECEIVED', 'DISPUTED']],
+    ['IN_TRANSIT', ['PROOF_RECEIVED', 'DISPUTED']],
+    ['PROOF_RECEIVED', ['RECONCILED', 'DISPUTED']],
+    ['DISPUTED', ['RECONCILED']],
+    ['RECONCILED', []],
+  ])('keeps the complete outgoing transition set for %s', (from, expected) => {
+    expect(orderTransitions[from as keyof typeof orderTransitions]).toEqual(expected)
+  })
+
+  it.each(['ACCEPTED', 'EXPIRED', 'CANCELLED'])('treats terminal quote requests as immutable: %s', (state) => {
+    expect(quoteRequestTransitions[state as keyof typeof quoteRequestTransitions]).toEqual([])
+  })
+
+  it.each(['ACCEPTED', 'REJECTED', 'EXPIRED'])('treats terminal quotes as immutable: %s', (state) => {
+    expect(quoteTransitions[state as keyof typeof quoteTransitions]).toEqual([])
+  })
 })
