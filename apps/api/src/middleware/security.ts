@@ -40,6 +40,12 @@ export const writeRateLimiter = createLimiter({
   limit: 60,
 })
 
+export const assistantRateLimiter = createLimiter({
+  prefix: 'neev:ratelimit:assistant:',
+  windowMs: 60_000,
+  limit: 20,
+})
+
 export const loginRateLimiter = rateLimit({
   windowMs: env.LOGIN_RATE_LIMIT_WINDOW_SECONDS * 1000,
   limit: env.LOGIN_RATE_LIMIT_MAX_REQUESTS,

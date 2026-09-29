@@ -21,7 +21,8 @@ import { sustainabilityRouter } from './routes/sustainability.js'
 import { openapiDocument } from './docs/openapi.js'
 import { authRouter } from './routes/auth.js'
 import { authenticate } from './middleware/auth.js'
-import { writeRateLimiter } from './middleware/security.js'
+import { assistantRouter } from './routes/assistant.js'
+import { assistantRateLimiter, writeRateLimiter } from './middleware/security.js'
 
 export function createApp() {
   const app = express()
@@ -41,6 +42,7 @@ export function createApp() {
   app.use(express.json({ limit: env.MAX_JSON_BODY_BYTES, strict: true }))
   app.use(express.urlencoded({ extended: false, limit: env.MAX_URLENCODED_BODY_BYTES }))
   app.use('/api/v1/auth', authRouter)
+  app.use('/api/v1/assistant', assistantRateLimiter, assistantRouter)
   app.use([
     '/api/v1/quote-requests',
     '/api/v1/quotes',

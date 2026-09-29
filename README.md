@@ -381,8 +381,14 @@ flowchart LR
 | `RUN_WORKERS`, `RECONCILIATION_SWEEP_INTERVAL_SECONDS` | Choose embedded or separate workers and sweep interval |
 | `IDEMPOTENCY_TTL_SECONDS` | Retention for durable request fingerprints and response replay |
 | `PAYMENT_WEBHOOK_SECRET` | Provider HMAC secret |
+| `GEMINI_API_KEY` | Optional server-side Gemini key for the public assistant; keep it only on the API runtime, never in the static demo or GitHub Pages artifact |
+| `GEMINI_MODEL` | Gemini model name used by the server-side assistant; defaults to `gemini-2.5-flash` |
 | `MONGODB_URL` and `MONGODB_ENCRYPTION_KEY` | Both required to enable optional MongoDB |
 | `DATABASE_SSL_MODE` | `require` is enforced in production |
+
+The public assistant reads `GEMINI_API_KEY` only from the API runtime. A GitHub Actions secret is not
+automatically available to Render or GitHub Pages, so configure the same secret on the deployed API
+service before expecting live Gemini responses.
 
 ## CI And Release
 

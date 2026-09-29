@@ -10,6 +10,7 @@ export const openapiDocument = {
     { name: 'Auth', description: 'Password login and rotating refresh sessions' },
     { name: 'Pricing', description: 'Volume pricing and dynamic fee calculation' },
     { name: 'Sustainability', description: 'Organization-scoped carbon reduction metrics' },
+    { name: 'Assistant', description: 'Rate-limited server-side Gemini supply guidance' },
     { name: 'Health', description: 'Service and dependency health' },
   ],
   paths: {
@@ -94,6 +95,23 @@ export const openapiDocument = {
         responses: { '201': { description: 'Stored or updated metric.' }, '400': { $ref: '#/components/responses/ValidationError' }, '403': { $ref: '#/components/responses/Forbidden' } },
       },
     },
+    '/assistant/chat': {
+      post: {
+        tags: ['Assistant'],
+        summary: 'Ask the public Neev supply assistant',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/AssistantChatRequest' } } },
+        },
+        responses: {
+          '200': { description: 'Assistant response.', content: { 'application/json': { schema: { $ref: '#/components/schemas/AssistantChatResponse' } } } },
+          '400': { $ref: '#/components/responses/ValidationError' },
+          '429': { description: 'Assistant rate limit exceeded.' },
+          '502': { description: 'Assistant provider unavailable.' },
+          '503': { description: 'Assistant is not configured.' },
+        },
+      },
+    },
     '/health/live': {
       get: { tags: ['Health'], summary: 'Check process liveness', responses: { '200': { description: 'Process is alive.' } } },
     },
@@ -163,6 +181,15 @@ export const openapiDocument = {
           methodology: { type: 'string', maxLength: 120 },
           orderId: { type: 'string' },
         },
+      },
+      AssistantChatRequest: {
+        type: 'object',
+        required: ['message'],
+        properties: { message: { type: 'string', minLength: 1, maxLength: 1500 } },
+      },
+      AssistantChatResponse: {
+        type: 'object',
+        properties: { data: { type: 'object', properties: { text: { type: 'string' } } } },
       },
     },
     responses: {

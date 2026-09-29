@@ -10,6 +10,7 @@ process.env.JWT_ISSUER ??= 'neev-api'
 process.env.JWT_AUDIENCE ??= 'neev-web'
 process.env.AUTH_REQUIRE_USER_LOOKUP ??= 'false'
 process.env.PAYMENT_WEBHOOK_SECRET ??= 'test-webhook-secret-123456'
+process.env.GEMINI_API_KEY ??= 'test-gemini-key'
 process.env.WEB_ORIGIN ??= 'http://localhost:3000'
 
 vi.mock('../src/lib/queues.js', () => ({
@@ -31,6 +32,47 @@ describe('API contract', () => {
     const response = await request(createApp()).get('/api/v1/health/live')
     expect(response.status).toBe(200)
     expect(response.body).toMatchObject({ status: 'ok', service: 'neev-api' })
+  })
+
+  it('proxies assistant requests without returning the provider key', async () => {
+    const { createApp } = await import('../src/app.js')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ candidates: [{ content: { parts: [{ text: 'Use a fresh A+ brick and confirm freight separately.' }] } }] }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      const response = await request(createApp())
+        .post('/api/v1/assistant/chat')
+        .send({ message: 'Which brick is best for a home?' })
+
+      expect(response.status).toBe(200)
+      expect(response.body).toEqual({ data: { text: 'Use a fresh A+ brick and confirm freight separately.' } })
+      expect(String(fetchMock.mock.calls[0]?.[0])).toContain('key=test-gemini-key')
+      expect(String(fetchMock.mock.calls[0]?.[1]?.body)).not.toContain('test-gemini-key')
+      expect(JSON.stringify(response.body)).not.toContain('test-gemini-key')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('validates assistant messages before calling Gemini', async () => {
+    const { createApp } = await import('../src/app.js')
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      const response = await request(createApp())
+        .post('/api/v1/assistant/chat')
+        .send({ message: ' ' })
+
+      expect(response.status).toBe(400)
+      expect(response.body.error).toBe('Validation failed')
+      expect(fetchMock).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('returns structured 404 errors with a request id', async () => {
