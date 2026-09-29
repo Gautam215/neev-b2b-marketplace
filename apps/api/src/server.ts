@@ -1,5 +1,4 @@
-import { createServer } from 'node:http'
-import { createApp } from './app.js'
+import { createServer, type Server } from 'node:http'
 import { env } from './config/env.js'
 import { closeRedis, connectRedis } from './lib/redis.js'
 import { prisma } from './lib/prisma.js'
@@ -9,20 +8,22 @@ import { closeMongo, connectMongo } from './lib/mongo.js'
 import { withTimeout } from './lib/timeouts.js'
 import { closeQueues, startQueueWorkers } from './lib/queues.js'
 
-const app = createApp()
-const server = createServer(app)
-attachRealtime(server)
-
 let shuttingDown = false
+let server: Server | undefined
 
 async function start() {
   await withTimeout(prisma.$connect(), env.STARTUP_TIMEOUT_MS, 'postgres startup timed out')
   await withTimeout(connectRedis(), env.STARTUP_TIMEOUT_MS, 'redis startup timed out')
   await withTimeout(connectMongo(), env.STARTUP_TIMEOUT_MS, 'mongo startup timed out')
+  // Redis-backed rate limiters initialize during app import, so connect Redis first.
+  const { createApp } = await import('./app.js')
+  const app = createApp()
+  server = createServer(app)
+  attachRealtime(server)
   if (env.RUN_WORKERS) await startQueueWorkers()
   await new Promise<void>((resolve, reject) => {
-    server.once('error', reject)
-    server.listen(env.PORT, () => resolve())
+    server!.once('error', reject)
+    server!.listen(env.PORT, () => resolve())
   })
   logger.info({ port: env.PORT }, 'neev api listening')
 }
@@ -31,8 +32,9 @@ async function shutdown(signal: string, exitCode = 0) {
   if (shuttingDown) return
   shuttingDown = true
   logger.info({ signal }, 'shutting down')
-  const closeServer = server.listening
-    ? new Promise<void>((resolve) => server.close(() => resolve()))
+  const activeServer = server
+  const closeServer = activeServer?.listening
+    ? new Promise<void>((resolve) => activeServer.close(() => resolve()))
     : Promise.resolve()
   await Promise.allSettled([
     withTimeout(closeServer, env.SHUTDOWN_TIMEOUT_MS, 'http server shutdown timed out'),
