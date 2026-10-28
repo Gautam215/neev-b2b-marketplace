@@ -43,7 +43,9 @@ export const errorHandler: ErrorRequestHandler = (error, request, response, _nex
   if ([400, 401, 403, 413, 429].includes(status)) logger.warn({ event: 'security.request_rejected', status, requestId, method: request.method, url: request.originalUrl }, message)
   if (status >= 500) logger.error({ err: error, requestId }, 'unhandled request error')
   response.status(status).json({
-    error: status >= 500 ? 'Internal server error' : message,
+    // HttpError messages are curated by the route, so they stay readable;
+    // unexpected errors are still masked as a generic 500.
+    error: error instanceof HttpError || status < 500 ? message : 'Internal server error',
     requestId,
     ...(error instanceof HttpError && error.details ? { details: error.details } : {}),
     ...(details ? { details } : {}),

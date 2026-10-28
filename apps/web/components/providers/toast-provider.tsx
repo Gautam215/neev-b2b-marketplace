@@ -22,7 +22,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       <div className="fixed bottom-5 right-5 z-50 grid w-[min(380px,calc(100vw-2rem))] gap-3" aria-live="polite" aria-atomic="true">
         {items.map((item) => (
-          <div key={item.id} role="status" className={cn('rounded-2xl border p-4 shadow-glass backdrop-blur-xl', item.tone === 'error' ? 'border-red-300/20 bg-red-950/80 text-red-50' : 'border-lime/20 bg-[#182017]/90 text-white')}>
+          <div key={item.id} role="status" className={cn('rounded-2xl border p-4 shadow-cinematic backdrop-blur-xl', item.tone === 'error' ? 'border-red-300/20 bg-red-950/80 text-red-50' : 'border-cobalt/20 bg-[#10141c]/90 text-white')}>
             <strong className="block text-sm">{item.title}</strong>
             <span className="mt-1 block text-xs text-white/65">{item.description}</span>
           </div>

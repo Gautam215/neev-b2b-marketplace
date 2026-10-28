@@ -6,21 +6,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        graphite: '#0b0d0d',
-        panel: '#151919',
-        'panel-raised': '#1d2322',
-        lime: '#c6ec62',
-        clay: '#bd7654',
-        mist: '#a7aea9',
+        canvas: '#0a0d12',
+        surface: '#10141c',
+        'surface-2': '#171d29',
+        'surface-3': '#1e2433',
+        cobalt: '#4d6bff',
+        'cobalt-light': '#6b85ff',
+        mint: '#54d3b3',
+        amber: '#f2ecdc',
+        ink: '#f5f7fb',
+        'ink-2': '#9ea8bd',
+        'border': '#28324a',
       },
       boxShadow: {
-        glass: '0 24px 70px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .06)',
-      },
-      borderRadius: {
-        apple: '1.5rem',
+        cinematic: '0 28px 90px rgba(0, 0, 0, .32), inset 0 1px 0 rgba(255, 255, 255, .06)',
       },
       fontFamily: {
-        sans: ['Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        mono: ['IBM Plex Mono', 'monospace'],
       },
     },
   },

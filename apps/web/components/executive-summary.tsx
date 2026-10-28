@@ -94,24 +94,24 @@ export function ExecutiveSummary() {
   }
 
   return (
-    <section aria-labelledby="summary-title" className="relative overflow-hidden rounded-apple border border-white/10 bg-panel p-5 shadow-glass sm:p-7">
-      <div className="pointer-events-none absolute -right-40 -top-48 h-[34rem] w-[34rem] rounded-full bg-lime/10 blur-3xl" />
+    <section aria-labelledby="summary-title" className="relative overflow-hidden rounded-2xl border border-white/10 bg-surface p-5 shadow-cinematic sm:p-7">
+      <div className="pointer-events-none absolute -right-40 -top-48 h-[34rem] w-[34rem] rounded-full bg-cobalt/10 blur-3xl" />
       <div className="relative z-10">
         <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
           <div>
             <Badge>Executive summary / live signal</Badge>
             <h2 id="summary-title" className="mt-5 max-w-3xl text-4xl font-semibold leading-[.98] tracking-[-.07em] sm:text-5xl">{copy.title}</h2>
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-mist">{copy.description}</p>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-ink-2">{copy.description}</p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2"><Button variant="secondary" size="sm" onClick={refresh} disabled={loading}><RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />Refresh</Button><Button asChild size="sm"><Link href="/workspace">Full workspace <ArrowUpRight className="h-4 w-4" /></Link></Button></div>
         </div>
 
         <div className="mt-8 grid gap-2 rounded-2xl border border-white/10 bg-white/[.035] p-2 sm:grid-cols-2" role="tablist" aria-label="Executive role view">
-          {(['buyer', 'supplier'] as Role[]).map((item) => <button key={item} type="button" role="tab" aria-selected={role === item} onClick={() => selectRole(item)} className={`flex min-h-14 items-center justify-between rounded-xl px-4 text-left transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime active:scale-[.99] ${role === item ? 'border border-lime/35 bg-lime/10 text-white' : 'border border-transparent text-white/55 hover:border-white/15 hover:text-white'}`}><span><strong className="block text-sm capitalize">{item} view</strong><span className="mt-1 block text-xs text-white/45">{item === 'buyer' ? 'Demand, landed cost, payment' : 'Inventory, quotes, dispatch'}</span></span>{role === item ? <Check className="h-4 w-4 text-lime" /> : <span className="h-2 w-2 rounded-full bg-white/20" />}</button>)}
+          {(['buyer', 'supplier'] as Role[]).map((item) => <button key={item} type="button" role="tab" aria-selected={role === item} onClick={() => selectRole(item)} className={`flex min-h-14 items-center justify-between rounded-xl px-4 text-left transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt active:scale-[.99] ${role === item ? 'border border-cobalt/35 bg-cobalt/10 text-white' : 'border border-transparent text-white/55 hover:border-white/15 hover:text-white'}`}><span><strong className="block text-sm capitalize">{item} view</strong><span className="mt-1 block text-xs text-white/45">{item === 'buyer' ? 'Demand, landed cost, payment' : 'Inventory, quotes, dispatch'}</span></span>{role === item ? <Check className="h-4 w-4 text-mint" /> : <span className="h-2 w-2 rounded-full bg-white/20" />}</button>)}
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">
-          {loading ? [0, 1, 2].map((item) => <Card key={item} className="border-white/10 bg-white/[.04] shadow-none"><CardContent className="p-5"><Skeleton className="h-3 w-24" /><Skeleton className="mt-5 h-8 w-28" /><Skeleton className="mt-3 h-3 w-36" /></CardContent></Card>) : copy.metrics.map(([label, value, note]) => <Card key={label} className="border-white/10 bg-white/[.045] shadow-none transition duration-200 hover:-translate-y-1 hover:border-white/20"><CardContent className="p-5"><span className="text-xs text-white/45">{label}</span><strong className="mt-5 block text-3xl tracking-[-.06em] text-white">{value}</strong><small className="mt-2 block text-xs text-lime/80">{note}</small></CardContent></Card>)}
+          {loading ? [0, 1, 2].map((item) => <Card key={item} className="border-white/10 bg-white/[.04] shadow-none"><CardContent className="p-5"><Skeleton className="h-3 w-24" /><Skeleton className="mt-5 h-8 w-28" /><Skeleton className="mt-3 h-3 w-36" /></CardContent></Card>) : copy.metrics.map(([label, value, note]) => <Card key={label} className="border-white/10 bg-white/[.045] shadow-none transition duration-200 hover:-translate-y-1 hover:border-white/20"><CardContent className="p-5"><span className="text-xs text-white/45">{label}</span><strong className="mt-5 block text-3xl tracking-[-.06em] text-white">{value}</strong><small className="mt-2 block text-xs text-mint/80">{note}</small></CardContent></Card>)}
         </div>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[1.15fr_.85fr]">
@@ -119,41 +119,41 @@ export function ExecutiveSummary() {
             <CardHeader>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[.16em] text-clay">Next safe action</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[.16em] text-amber">Next safe action</p>
                   <h3 className="mt-2 text-xl tracking-[-.04em]">{role === 'buyer' ? 'Stage a structured material request.' : 'Publish the stock buyers can trust.'}</h3>
                 </div>
-                <PackageCheck className="h-5 w-5 text-lime" aria-hidden="true" />
+                <PackageCheck className="h-5 w-5 text-mint" aria-hidden="true" />
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid gap-2 sm:grid-cols-3">
                 {copy.steps.map((step, index) => (
                   <div key={step} className="relative rounded-xl border border-white/10 bg-black/10 p-3">
-                    <span className="text-[10px] font-bold text-lime">0{index + 1}</span>
+                    <span className="text-[10px] font-bold text-mint">0{index + 1}</span>
                     <strong className="mt-7 block text-xs text-white">{step}</strong>
                     {index < copy.steps.length - 1 && <span className="absolute right-2 top-3 hidden text-white/25 sm:block" aria-hidden="true">{'->'}</span>}
                   </div>
                 ))}
               </div>
               <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-white/45">
-                <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-lime" />Role-scoped access</span>
-                <span className="inline-flex items-center gap-2"><Database className="h-4 w-4 text-lime" />Offline draft saved</span>
-                <span className="inline-flex items-center gap-2"><Clock3 className="h-4 w-4 text-lime" />P95 signal &lt; 600 ms</span>
+                <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-mint" />Role-scoped access</span>
+                <span className="inline-flex items-center gap-2"><Database className="h-4 w-4 text-mint" />Offline draft saved</span>
+                <span className="inline-flex items-center gap-2"><Clock3 className="h-4 w-4 text-mint" />P95 signal &lt; 600 ms</span>
               </div>
             </CardContent>
           </Card>
 
           <Card className="relative overflow-hidden border-white/10 bg-black/20 shadow-none">
             <Image src="https://images.unsplash.com/photo-1629608564457-5d74829a9e14?auto=format&fit=crop&w=1200&q=80" alt="Hand-formed red bricks stacked at a local kiln" fill loading="lazy" sizes="(max-width: 1024px) 100vw, 35vw" unoptimized className="object-cover opacity-35" />
-            <div className="absolute inset-0 bg-gradient-to-t from-panel via-panel/55 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/55 to-transparent" />
             <CardContent className="relative flex min-h-[260px] flex-col justify-end p-5">
-              <Leaf className="h-5 w-5 text-lime" aria-hidden="true" />
+              <Leaf className="h-5 w-5 text-mint" aria-hidden="true" />
               <p className="mt-4 text-xs uppercase tracking-[.14em] text-white/45">Confidence trend / last 7 checks</p>
               <div className="mt-5 flex h-24 items-end gap-2" aria-label="Confidence improved from 42 to 92 percent">
                 <span className="sr-only">Confidence improved from 42 to 92 percent over the last seven checks.</span>
-                {chartBars.map((height, index) => <span key={index} className="min-h-3 flex-1 rounded-t-md bg-gradient-to-t from-[#6f9038] to-lime shadow-[0_0_18px_rgba(198,236,98,.12)]" style={{ height: `${height}%` }} />)}
+                {chartBars.map((height, index) => <span key={index} className="min-h-3 flex-1 rounded-t-md bg-gradient-to-t from-cobalt to-mint shadow-[0_0_18px_rgba(77,107,255,.12)]" style={{ height: `${height}%` }} />)}
               </div>
-              <div className="mt-3 flex justify-between text-xs text-white/45"><span>7 checks ago</span><strong className="text-lime">92% / current</strong></div>
+              <div className="mt-3 flex justify-between text-xs text-white/45"><span>7 checks ago</span><strong className="text-mint">92% / current</strong></div>
             </CardContent>
           </Card>
         </div>
@@ -162,20 +162,20 @@ export function ExecutiveSummary() {
           <CardHeader>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[.16em] text-clay">Create a next action</p>
+                <p className="text-[10px] font-bold uppercase tracking-[.16em] text-amber">Create a next action</p>
                 <h3 className="mt-2 text-xl tracking-[-.04em]">Start with a validated demand signal.</h3>
               </div>
-              <span className="hidden items-center gap-2 text-xs text-white/40 sm:flex"><Truck className="h-4 w-4 text-lime" />No payment is taken in demo mode</span>
+              <span className="hidden items-center gap-2 text-xs text-white/40 sm:flex"><Truck className="h-4 w-4 text-mint" />No payment is taken in demo mode</span>
             </div>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(submitRequest)} noValidate className="grid gap-4 sm:grid-cols-[.75fr_1fr_auto] sm:items-end">
               <label className="grid gap-2 text-xs text-white/55">Quantity
-                <input {...register('quantity')} type="number" min={1000} max={5000000} step={1000} aria-invalid={Boolean(errors.quantity)} className="min-h-11 rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none transition focus:border-lime focus:ring-2 focus:ring-lime/20" />
+                <input {...register('quantity')} type="number" min={1000} max={5000000} step={1000} aria-invalid={Boolean(errors.quantity)} className="min-h-11 rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none transition focus:border-cobalt focus:ring-2 focus:ring-cobalt/20" />
                 {errors.quantity && <span role="alert" className="text-xs text-red-300">{errors.quantity.message}</span>}
               </label>
               <label className="grid gap-2 text-xs text-white/55">Delivery area
-                <input {...register('deliveryArea')} aria-invalid={Boolean(errors.deliveryArea)} className="min-h-11 rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none transition focus:border-lime focus:ring-2 focus:ring-lime/20" />
+                <input {...register('deliveryArea')} aria-invalid={Boolean(errors.deliveryArea)} className="min-h-11 rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none transition focus:border-cobalt focus:ring-2 focus:ring-cobalt/20" />
                 {errors.deliveryArea && <span role="alert" className="text-xs text-red-300">{errors.deliveryArea.message}</span>}
               </label>
               <Button type="submit" disabled={loading}>{loading ? 'Staging...' : 'Stage request'} <ArrowUpRight className="h-4 w-4" /></Button>

@@ -41,6 +41,11 @@ export const defaultPricingRules: PricingRules = {
   },
 }
 
+export function selectPricingTier(tiers: PricingRules['tiers'], quantity: number) {
+  const sorted = [...tiers].sort((left, right) => left.minQuantity - right.minQuantity)
+  return sorted.reduce((selected, candidate) => candidate.minQuantity <= quantity ? candidate : selected, sorted[0]!)
+}
+
 export async function getPricingRules(): Promise<PricingRules> {
   if (redis.isReady) {
     try {

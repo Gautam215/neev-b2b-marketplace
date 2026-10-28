@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { Prisma } from '@prisma/client'
 import { authenticate, requirePermissions } from '../middleware/auth.js'
 import { pricingCalculateSchema } from '../schemas/marketplace.js'
-import { getPricingRules } from '../lib/pricing-rules.js'
+import { getPricingRules, selectPricingTier } from '../lib/pricing-rules.js'
 
 const money = (value: Prisma.Decimal) => value.toFixed(2)
 
@@ -13,7 +13,7 @@ pricingRouter.post('/calculate', authenticate, requirePermissions('pricing:calcu
   const rules = await getPricingRules()
   const quantity = new Prisma.Decimal(input.quantity)
   const materialSubtotal = quantity.mul(input.unitPrice)
-  const tier = [...rules.tiers].sort((left, right) => left.minQuantity - right.minQuantity).reduce((selected, candidate) => candidate.minQuantity <= input.quantity ? candidate : selected, rules.tiers[0]!)
+  const tier = selectPricingTier(rules.tiers, input.quantity)
   const volumeDiscount = materialSubtotal.mul(tier.discountBps).div(10000)
   const discountedMaterial = materialSubtotal.sub(volumeDiscount)
   const freight = new Prisma.Decimal(input.distanceKm).mul(rules.fees.freightPerKm)

@@ -61,5 +61,5 @@ sustainabilityRouter.post('/metrics', authenticate, requirePermissions('sustaina
     })
     return result
   })
-  response.status(201).json({ data: { ...metric, baselineKg: decimalString(metric.baselineKg), actualKg: decimalString(metric.actualKg), reducedKg: decimalString(metric.reducedKg), recycledSharePct: metric.recycledSharePct.toFixed(2) } })
+  response.status(existing ? 200 : 201).json({ data: { ...metric, baselineKg: decimalString(metric.baselineKg), actualKg: decimalString(metric.actualKg), reducedKg: decimalString(metric.reducedKg), recycledSharePct: metric.recycledSharePct.toFixed(2) } })
 })

@@ -4,11 +4,11 @@ import { Command } from 'lucide-react'
 
 export function NavigationHeader() {
   return (
-    <header className="border-b border-white/10 bg-graphite/80 backdrop-blur-xl">
-      <div className="mx-auto flex min-h-[74px] max-w-6xl items-center justify-between gap-4 px-6 md:px-10">
+    <header className="sticky top-4 z-50 mx-auto mt-4 max-w-6xl rounded-full border border-white/10 bg-surface/80 shadow-cinematic backdrop-blur-xl">
+      <div className="flex min-h-[60px] items-center justify-between gap-4 px-6 md:px-8">
         <Link
           href="/"
-          className="flex items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime"
+          className="flex items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
           aria-label="Neev home"
         >
           <span className="overflow-hidden rounded-xl bg-[#f4f1e9] shadow-[0_8px_24px_rgba(0,0,0,.18)] ring-1 ring-black/10">
@@ -32,7 +32,7 @@ export function NavigationHeader() {
 
         <Link
           href="/workspace"
-          className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/[.05] px-3 text-xs font-semibold transition hover:-translate-y-0.5 hover:border-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime"
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/[.05] px-3 text-xs font-semibold transition hover:-translate-y-0.5 hover:border-white/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
         >
           <Command className="h-4 w-4" />
           Open workspace

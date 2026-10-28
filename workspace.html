@@ -3,75 +3,86 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f5f5f2" />
+    <meta name="theme-color" content="#0a0d12" />
   <meta name="description" content="Neev - hyper-local red brick supply marketplace demo" />
   <title>Neev | Build local, build with certainty</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #f5f5f2;
-      --panel: #ffffff;
-      --panel-soft: #fbfbf9;
-      --ink: #1c211f;
-      --muted: #747b76;
-      --muted-2: #9aa19c;
-      --line: #e6e8e4;
-      --sidebar: #202522;
-      --sidebar-2: #29302c;
-      --sidebar-ink: #f5f7f3;
-      --blue: #2f6df6;
-      --blue-2: #eaf0ff;
-      --green: #2e8b67;
-      --green-2: #e8f5ef;
-      --amber: #b7791f;
-      --amber-2: #fff5df;
-      --red: #c4544c;
-      --red-2: #fff0ee;
-      --violet: #7256b5;
-      --shadow: 0 12px 34px rgba(32, 37, 34, .06);
-      --glass: rgba(255, 255, 255, .62);
-      --glass-line: rgba(255, 255, 255, .74);
+      color-scheme: dark;
+      --bg: hsl(222 27% 5%);
+      --panel: hsl(219 29% 9%);
+      --panel-soft: hsl(219 28% 13%);
+      --ink: hsl(220 33% 97%);
+      --muted: hsl(217 21% 69%);
+      --muted-2: hsl(217 15% 61%);
+      --line: hsl(219 29% 22%);
+      --sidebar: hsl(219 29% 9%);
+      --sidebar-2: hsl(219 28% 13%);
+      --sidebar-ink: hsl(220 33% 97%);
+      --blue: hsl(229 100% 65%);
+      --blue-2: hsl(219 28% 13%);
+      --green: hsl(169 59% 58%);
+      --green-2: hsl(169 40% 14%);
+      --amber: hsl(40 25% 92%);
+      --amber-2: hsl(40 20% 14%);
+      --red: #f28b82;
+      --red-2: hsl(0 40% 16%);
+      --violet: #b39ddb;
+      --shadow: 0 28px 90px rgba(0, 0, 0, .32);
+      --glass: hsla(219, 29%, 9%, .62);
+      --glass-line: hsla(219, 29%, 22%, .74);
       --radius-sm: 12px;
       --radius: 16px;
-      --radius-lg: 22px;
+      --radius-lg: 24px;
     }
 
     [data-theme="dark"] {
-      --bg: #151917;
-      --panel: #202522;
-      --panel-soft: #1b211e;
-      --ink: #f0f3ef;
-      --muted: #a0aaa3;
-      --muted-2: #748078;
-      --line: #343c37;
-      --sidebar: #101412;
-      --sidebar-2: #1e2822;
-      --sidebar-ink: #f4f7f3;
-      --blue-2: #202e51;
-      --green-2: #17372b;
-      --amber-2: #3c2f17;
-      --red-2: #412321;
-      --shadow: 0 18px 44px rgba(0, 0, 0, .18);
-      --glass: rgba(32, 37, 34, .68);
-      --glass-line: rgba(255, 255, 255, .12);
+      color-scheme: dark;
+      --bg: hsl(222 27% 5%);
+      --panel: hsl(219 29% 9%);
+      --panel-soft: hsl(219 28% 13%);
+      --ink: hsl(220 33% 97%);
+      --muted: hsl(217 21% 69%);
+      --muted-2: hsl(217 15% 61%);
+      --line: hsl(219 29% 22%);
+      --sidebar: hsl(219 29% 9%);
+      --sidebar-2: hsl(219 28% 13%);
+      --sidebar-ink: hsl(220 33% 97%);
+      --blue: hsl(229 100% 65%);
+      --blue-2: hsl(219 28% 13%);
+      --green: hsl(169 59% 58%);
+      --green-2: hsl(169 40% 14%);
+      --amber: hsl(40 25% 92%);
+      --amber-2: hsl(40 20% 14%);
+      --red: #f28b82;
+      --red-2: hsl(0 40% 16%);
+      --violet: #b39ddb;
+      --shadow: 0 28px 90px rgba(0, 0, 0, .32);
+      --glass: hsla(219, 29%, 9%, .62);
+      --glass-line: hsla(219, 29%, 22%, .74);
+      --radius-sm: 12px;
+      --radius: 16px;
+      --radius-lg: 24px;
     }
 
     * { box-sizing: border-box; }
-    html { min-width: 320px; }
+    html { min-width: 320px; overflow-x: clip; }
     body {
       position: relative;
       isolation: isolate;
       margin: 0;
       background: var(--bg);
       color: var(--ink);
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, ui-sans-serif, "Segoe UI", sans-serif;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
       font-size: 14px;
       line-height: 1.45;
       -webkit-font-smoothing: antialiased;
       text-rendering: optimizeLegibility;
       transition: background .18s ease, color .18s ease;
     }
-    body::before { content: ''; position: fixed; z-index: -1; inset: 0; pointer-events: none; background: radial-gradient(circle at 94% -8%, rgba(47,109,246,.08), transparent 29%), radial-gradient(circle at 4% 82%, rgba(46,139,103,.05), transparent 24%); animation: ambient-drift 18s ease-in-out infinite alternate; }
-    [data-theme="dark"] body::before { background: radial-gradient(circle at 92% -8%, rgba(125,161,255,.15), transparent 31%), radial-gradient(circle at 8% 76%, rgba(109,209,157,.08), transparent 25%); }
+    body::before { content: ''; position: fixed; z-index: -1; inset: 0; pointer-events: none; background: radial-gradient(circle at 94% -8%, rgba(77,107,255,.08), transparent 29%), radial-gradient(circle at 4% 82%, rgba(84,211,179,.05), transparent 24%); animation: ambient-drift 18s ease-in-out infinite alternate; }
+    [data-theme="dark"] body::before { background: radial-gradient(circle at 92% -8%, rgba(107,133,255,.15), transparent 31%), radial-gradient(circle at 8% 76%, rgba(84,211,179,.08), transparent 25%); }
     button, input, select, textarea { font: inherit; -webkit-tap-highlight-color: transparent; }
     button { cursor: pointer; }
     a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
@@ -115,7 +126,7 @@
     .sidebar-foot { margin-top: auto; padding: 18px 9px 0; border-top: 1px solid rgba(255,255,255,.08); }
     .pilot-note { color: #94a097; font-size: 11px; line-height: 1.5; }
     .pilot-note strong { display: block; color: #dfe7df; margin-bottom: 3px; }
-    .main { min-width: 0; background: radial-gradient(circle at 92% -8%, rgba(47,109,246,.06), transparent 26%), var(--bg); }
+    .main { min-width: 0; background: radial-gradient(circle at 92% -8%, rgba(77,107,255,.06), transparent 26%), var(--bg); }
     .topbar {
       height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 18px;
       padding: 0 36px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); background: color-mix(in srgb, var(--bg) 72%, transparent);
@@ -178,7 +189,7 @@
     .stat-icon { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 10px; background: var(--blue-2); color: var(--blue); }
     .stat-icon.green { background: var(--green-2); color: var(--green); }
     .stat-icon.amber { background: var(--amber-2); color: var(--amber); }
-    .stat-icon.violet { background: #f0ebff; color: var(--violet); }
+    .stat-icon.violet { background: #2c2444; color: var(--violet); }
     [data-theme="dark"] .stat-icon.violet { background: #2c2444; }
     .stat-icon svg { width: 16px; height: 16px; }
     .stat-value { margin-top: 18px; font-size: 26px; line-height: 1; letter-spacing: -.045em; font-weight: 760; }
@@ -298,7 +309,7 @@
     .offer-list { display: grid; gap: 11px; }
     .offer-card { padding: 17px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); transition: border .18s ease, transform .18s ease, box-shadow .18s ease; }
     .offer-card:hover { transform: translateY(-1px); border-color: #bfc7c0; box-shadow: 0 9px 22px rgba(32,37,34,.06); }
-    .offer-card.recommended { border-color: #9ab4ff; box-shadow: 0 0 0 1px rgba(47,109,246,.08), var(--shadow); }
+    .offer-card.recommended { border-color: #9ab4ff; box-shadow: 0 0 0 1px rgba(77,107,255,.08), var(--shadow); }
     .offer-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
     .vendor-line { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .vendor-avatar { width: 35px; height: 35px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 11px; color: #fff; font-size: 10px; font-weight: 800; }
@@ -511,7 +522,7 @@
 
     const DEMO_KEY = 'neev-demo-state-v1';
     const SEED = {
-      theme: 'light', mode: 'buyer', view: 'overview', selectedQuote: 'NEEV-DEMO-Q-104',
+      theme: 'dark', mode: 'buyer', view: 'overview', selectedQuote: 'NEEV-DEMO-Q-104',
       need: {
         id: 'NEEV-DEMO-NEED-001', project: 'North Ring Road / package B', site: 'Sector 18, Noida',
         brickType: 'First-class red brick', grade: 'A+', quantity: 25000, targetDate: '02 Oct 2026',
@@ -651,7 +662,6 @@
               <div class="top-actions">
                 <label class="search">${icon('search')}<input id="global-search" placeholder="Search demo records" aria-label="Search demo records" /></label>
                 <div class="mode-switch" aria-label="Switch workspace"><button class="${db.mode === 'buyer' ? 'active' : ''}" data-mode="buyer">Buyer</button><button class="${db.mode === 'vendor' ? 'active' : ''}" data-mode="vendor">Vendor</button><button class="${db.mode === 'ops' ? 'active' : ''}" data-mode="ops">Ops</button></div>
-                 <button class="icon-button" data-action="theme" aria-label="Switch to ${db.theme === 'dark' ? 'light' : 'dark'} mode" title="Switch to ${db.theme === 'dark' ? 'light' : 'dark'} mode">${icon(db.theme === 'dark' ? 'sun' : 'moon')}<span class="notification-dot hidden"></span></button>
                 <button class="icon-button" data-action="notifications" aria-label="Notifications">${icon('bell')}<span class="notification-dot"></span></button>
                 <button class="avatar" aria-label="Account">AR</button>
               </div>
@@ -839,6 +849,7 @@
     }
     function acceptQuote(id) {
       const quote = quoteFor(id); const offer = db.offers.find(item => item.quote === id); if (!quote || !offer) return;
+      if (quote.status === 'ACCEPTED') { toast('Offer already accepted', 'This offer already created an order and reservation; it cannot be accepted again.', 'error'); return; }
       if (quote.status === 'EXPIRED') { toast('Offer is read-only', 'Duplicate the expired offer into a new request before accepting.', 'error'); return; }
       if (offer.available < quote.quantity) { toast('Verification required', 'This offer needs verification. We will confirm the available quantity before you pay.', 'error'); return; }
       const inventory = db.inventory.find(item => item.vendor === offer.vendor && item.product === offer.product) || db.inventory.find(item => item.vendor === offer.vendor);

@@ -40,12 +40,12 @@ export function userResponse(user: SessionUser) {
 
 export async function createRefreshSession(
   writer: SessionWriter,
-  input: { userId: string; familyId?: string; userAgent?: string; ipAddress?: string },
+  input: { userId: string; familyId?: string; userAgent?: string; ipAddress?: string; id?: string },
 ) {
   const token = createRawRefreshToken()
   const session = await writer.refreshSession.create({
     data: {
-      id: randomUUID(),
+      id: input.id ?? randomUUID(),
       userId: input.userId,
       familyId: input.familyId ?? randomUUID(),
       tokenHash: hashRefreshToken(token),
@@ -87,6 +87,7 @@ export async function rotateRefreshToken(rawToken: string, input: { requestId: s
       familyId: current.familyId,
       userAgent: input.userAgent,
       ipAddress: input.ipAddress,
+      id: nextId,
     })
     await recordAudit(transaction, {
       organizationId: current.user.organizationId,
